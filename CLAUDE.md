@@ -28,6 +28,7 @@ go mod tidy
 
 # Codebase Structure
 
+- `LICENSE` - MIT license
 - `claude.go` - Main SDK entry point with `Query()` and `QueryStreaming()` functions
 - `client.go` - `Client` for interactive sessions
 - `options.go` - Configuration options and `With*` functional option functions
