@@ -2,206 +2,30 @@ package claude
 
 import (
 	"context"
+	"reflect"
+	"sort"
 	"testing"
 )
 
-func TestMCPServerConfig_Interface(t *testing.T) {
-	// Verify all MCP server config types implement MCPServerConfig interface
-	var _ MCPServerConfig = MCPStdioServerConfig{}
-	var _ MCPServerConfig = MCPSSEServerConfig{}
-	var _ MCPServerConfig = MCPHTTPServerConfig{}
-	var _ MCPServerConfig = MCPSDKServerConfig{}
-}
-
-func TestMCPStdioServerConfig_GetType(t *testing.T) {
-	tests := []struct {
-		name     string
-		config   MCPStdioServerConfig
-		expected string
-	}{
-		{
-			name:     "default type",
-			config:   MCPStdioServerConfig{Command: "npx"},
-			expected: "stdio",
-		},
-		{
-			name:     "explicit type",
-			config:   MCPStdioServerConfig{Type: "stdio", Command: "npx"},
-			expected: "stdio",
-		},
-		{
-			name:     "custom type (should still work)",
-			config:   MCPStdioServerConfig{Type: "custom", Command: "npx"},
-			expected: "custom",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.config.GetType() != tt.expected {
-				t.Errorf("Expected type '%s', got '%s'", tt.expected, tt.config.GetType())
-			}
-		})
-	}
-}
-
-func TestMCPStdioServerConfig_Fields(t *testing.T) {
-	config := MCPStdioServerConfig{
-		Type:    "stdio",
-		Command: "npx",
-		Args:    []string{"-y", "@modelcontextprotocol/server-filesystem"},
-		Env:     map[string]string{"PATH": "/usr/bin"},
-	}
-
-	if config.Command != "npx" {
-		t.Errorf("Expected Command 'npx', got '%s'", config.Command)
-	}
-	if len(config.Args) != 2 {
-		t.Errorf("Expected 2 Args, got %d", len(config.Args))
-	}
-	if config.Env["PATH"] != "/usr/bin" {
-		t.Errorf("Expected Env['PATH']='/usr/bin', got '%s'", config.Env["PATH"])
-	}
-}
-
-func TestMCPSSEServerConfig_GetType(t *testing.T) {
-	config := MCPSSEServerConfig{
-		Type: "sse",
-		URL:  "https://example.com/sse",
-	}
-
-	if config.GetType() != "sse" {
-		t.Errorf("Expected type 'sse', got '%s'", config.GetType())
-	}
-}
-
-func TestMCPSSEServerConfig_Fields(t *testing.T) {
-	config := MCPSSEServerConfig{
-		Type:    "sse",
-		URL:     "https://example.com/sse",
-		Headers: map[string]string{"Authorization": "Bearer token"},
-	}
-
-	if config.URL != "https://example.com/sse" {
-		t.Errorf("Expected URL to match")
-	}
-	if config.Headers["Authorization"] != "Bearer token" {
-		t.Errorf("Expected Authorization header to match")
-	}
-}
-
-func TestMCPHTTPServerConfig_GetType(t *testing.T) {
-	config := MCPHTTPServerConfig{
-		Type: "http",
-		URL:  "https://example.com/api",
-	}
-
-	if config.GetType() != "http" {
-		t.Errorf("Expected type 'http', got '%s'", config.GetType())
-	}
-}
-
-func TestMCPHTTPServerConfig_Fields(t *testing.T) {
-	config := MCPHTTPServerConfig{
-		Type:    "http",
-		URL:     "https://example.com/api",
-		Headers: map[string]string{"X-API-Key": "secret"},
-	}
-
-	if config.URL != "https://example.com/api" {
-		t.Errorf("Expected URL to match")
-	}
-	if config.Headers["X-API-Key"] != "secret" {
-		t.Errorf("Expected X-API-Key header to match")
-	}
-}
-
-func TestMCPSDKServerConfig_GetType(t *testing.T) {
-	config := MCPSDKServerConfig{
-		Type: "sdk",
-		Name: "test-server",
-	}
-
-	if config.GetType() != "sdk" {
-		t.Errorf("Expected type 'sdk', got '%s'", config.GetType())
-	}
-}
-
-func TestMCPSDKServerConfig_Fields(t *testing.T) {
-	server := NewMCPServer("test", "1.0.0", nil)
-	config := MCPSDKServerConfig{
-		Type:   "sdk",
-		Name:   "test-server",
-		Server: server,
-	}
-
-	if config.Name != "test-server" {
-		t.Errorf("Expected Name 'test-server', got '%s'", config.Name)
-	}
-	if config.Server == nil {
-		t.Error("Expected Server to be non-nil")
-	}
-}
-
-func TestNewMCPServer(t *testing.T) {
-	tools := []MCPTool{
-		{Name: "test-tool", Description: "A test tool"},
-	}
-	server := NewMCPServer("my-server", "1.0.0", tools)
-
-	if server == nil {
-		t.Fatal("Expected non-nil server")
-	}
-	if server.Name() != "my-server" {
-		t.Errorf("Expected name 'my-server', got '%s'", server.Name())
-	}
-	if server.Version() != "1.0.0" {
-		t.Errorf("Expected version '1.0.0', got '%s'", server.Version())
-	}
-	if len(server.Tools()) != 1 {
-		t.Errorf("Expected 1 tool, got %d", len(server.Tools()))
-	}
-}
-
-func TestMCPServer_Getters(t *testing.T) {
-	server := NewMCPServer("test-server", "2.0.0", []MCPTool{
-		{Name: "tool1"},
-		{Name: "tool2"},
-	})
-
-	if server.Name() != "test-server" {
-		t.Errorf("Expected Name 'test-server', got '%s'", server.Name())
-	}
-	if server.Version() != "2.0.0" {
-		t.Errorf("Expected Version '2.0.0', got '%s'", server.Version())
-	}
-	if len(server.Tools()) != 2 {
-		t.Errorf("Expected 2 tools, got %d", len(server.Tools()))
-	}
-}
-
-func TestMCPTool_Fields(t *testing.T) {
+func TestTool(t *testing.T) {
 	handler := func(ctx context.Context, args map[string]any) (MCPToolResult, error) {
 		return TextResult("result"), nil
 	}
 
-	tool := MCPTool{
-		Name:        "my-tool",
-		Description: "Does something useful",
-		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"arg1": map[string]any{"type": "string"},
-			},
+	inputSchema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"name": map[string]any{"type": "string"},
 		},
-		Handler: handler,
 	}
 
-	if tool.Name != "my-tool" {
-		t.Errorf("Expected Name 'my-tool', got '%s'", tool.Name)
+	tool := Tool("test-tool", "A test tool", inputSchema, handler)
+
+	if tool.Name != "test-tool" {
+		t.Errorf("Expected Name='test-tool', got '%s'", tool.Name)
 	}
-	if tool.Description != "Does something useful" {
-		t.Errorf("Expected Description to match")
+	if tool.Description != "A test tool" {
+		t.Errorf("Expected Description='A test tool', got '%s'", tool.Description)
 	}
 	if tool.InputSchema == nil {
 		t.Error("Expected InputSchema to be non-nil")
@@ -210,246 +34,302 @@ func TestMCPTool_Fields(t *testing.T) {
 		t.Error("Expected Handler to be non-nil")
 	}
 
-	// Test handler
+	// Verify handler works
 	result, err := tool.Handler(context.Background(), nil)
 	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		t.Errorf("Unexpected error from handler: %v", err)
 	}
-	if len(result.Content) != 1 {
-		t.Errorf("Expected 1 content item, got %d", len(result.Content))
+	if len(result.Content) != 1 || result.Content[0].Text != "result" {
+		t.Errorf("Unexpected result from handler: %v", result)
 	}
 }
 
-func TestMCPToolResult_Fields(t *testing.T) {
-	result := MCPToolResult{
-		Content: []MCPContent{
-			{Type: "text", Text: "Hello"},
-			{Type: "image", Data: "base64data", MimeType: "image/png"},
-		},
-		IsError: true,
+func TestSimpleInputSchema_StringType(t *testing.T) {
+	schema := SimpleInputSchema(map[string]string{
+		"name": "string",
+	})
+
+	if schema["type"] != "object" {
+		t.Errorf("Expected type='object', got '%v'", schema["type"])
 	}
 
-	if len(result.Content) != 2 {
-		t.Errorf("Expected 2 content items, got %d", len(result.Content))
+	properties, ok := schema["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("Expected properties to be map[string]any")
+	}
+
+	nameProp, ok := properties["name"].(map[string]any)
+	if !ok {
+		t.Fatal("Expected name property to be map[string]any")
+	}
+
+	if nameProp["type"] != "string" {
+		t.Errorf("Expected name type='string', got '%v'", nameProp["type"])
+	}
+
+	required, ok := schema["required"].([]string)
+	if !ok {
+		t.Fatal("Expected required to be []string")
+	}
+	if len(required) != 1 || required[0] != "name" {
+		t.Errorf("Expected required=['name'], got %v", required)
+	}
+}
+
+func TestSimpleInputSchema_NumberTypes(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"number", "number"},
+		{"float", "number"},
+		{"float64", "number"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			schema := SimpleInputSchema(map[string]string{
+				"value": tt.input,
+			})
+
+			properties := schema["properties"].(map[string]any)
+			valueProp := properties["value"].(map[string]any)
+
+			if valueProp["type"] != tt.expected {
+				t.Errorf("Expected type='%s' for input '%s', got '%v'", tt.expected, tt.input, valueProp["type"])
+			}
+		})
+	}
+}
+
+func TestSimpleInputSchema_IntegerTypes(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"integer", "integer"},
+		{"int", "integer"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			schema := SimpleInputSchema(map[string]string{
+				"count": tt.input,
+			})
+
+			properties := schema["properties"].(map[string]any)
+			countProp := properties["count"].(map[string]any)
+
+			if countProp["type"] != tt.expected {
+				t.Errorf("Expected type='%s' for input '%s', got '%v'", tt.expected, tt.input, countProp["type"])
+			}
+		})
+	}
+}
+
+func TestSimpleInputSchema_BooleanTypes(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"boolean", "boolean"},
+		{"bool", "boolean"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			schema := SimpleInputSchema(map[string]string{
+				"active": tt.input,
+			})
+
+			properties := schema["properties"].(map[string]any)
+			activeProp := properties["active"].(map[string]any)
+
+			if activeProp["type"] != tt.expected {
+				t.Errorf("Expected type='%s' for input '%s', got '%v'", tt.expected, tt.input, activeProp["type"])
+			}
+		})
+	}
+}
+
+func TestSimpleInputSchema_UnknownTypeDefaultsToString(t *testing.T) {
+	schema := SimpleInputSchema(map[string]string{
+		"custom": "custom_type",
+		"also":   "unknown",
+	})
+
+	properties := schema["properties"].(map[string]any)
+
+	customProp := properties["custom"].(map[string]any)
+	if customProp["type"] != "string" {
+		t.Errorf("Expected unknown type to default to 'string', got '%v'", customProp["type"])
+	}
+
+	alsoProp := properties["also"].(map[string]any)
+	if alsoProp["type"] != "string" {
+		t.Errorf("Expected unknown type to default to 'string', got '%v'", alsoProp["type"])
+	}
+}
+
+func TestSimpleInputSchema_MultipleFields(t *testing.T) {
+	schema := SimpleInputSchema(map[string]string{
+		"name":   "string",
+		"age":    "integer",
+		"active": "boolean",
+		"score":  "number",
+	})
+
+	properties := schema["properties"].(map[string]any)
+	if len(properties) != 4 {
+		t.Errorf("Expected 4 properties, got %d", len(properties))
+	}
+
+	required := schema["required"].([]string)
+	if len(required) != 4 {
+		t.Errorf("Expected 4 required fields, got %d", len(required))
+	}
+
+	// Sort for consistent comparison
+	sort.Strings(required)
+	expected := []string{"active", "age", "name", "score"}
+	if !reflect.DeepEqual(required, expected) {
+		t.Errorf("Expected required=%v, got %v", expected, required)
+	}
+}
+
+func TestSimpleInputSchema_EmptyFields(t *testing.T) {
+	schema := SimpleInputSchema(map[string]string{})
+
+	if schema["type"] != "object" {
+		t.Errorf("Expected type='object', got '%v'", schema["type"])
+	}
+
+	properties := schema["properties"].(map[string]any)
+	if len(properties) != 0 {
+		t.Errorf("Expected 0 properties, got %d", len(properties))
+	}
+
+	required := schema["required"].([]string)
+	if len(required) != 0 {
+		t.Errorf("Expected 0 required fields, got %d", len(required))
+	}
+}
+
+func TestTextResult(t *testing.T) {
+	result := TextResult("Hello, world!")
+
+	if len(result.Content) != 1 {
+		t.Fatalf("Expected 1 content item, got %d", len(result.Content))
+	}
+	if result.Content[0].Type != "text" {
+		t.Errorf("Expected content type='text', got '%s'", result.Content[0].Type)
+	}
+	if result.Content[0].Text != "Hello, world!" {
+		t.Errorf("Expected text='Hello, world!', got '%s'", result.Content[0].Text)
+	}
+	if result.IsError {
+		t.Error("Expected IsError to be false")
+	}
+}
+
+func TestTextResult_EmptyText(t *testing.T) {
+	result := TextResult("")
+
+	if len(result.Content) != 1 {
+		t.Fatalf("Expected 1 content item, got %d", len(result.Content))
+	}
+	if result.Content[0].Text != "" {
+		t.Errorf("Expected empty text, got '%s'", result.Content[0].Text)
+	}
+}
+
+func TestErrorResult(t *testing.T) {
+	result := ErrorResult("Something went wrong")
+
+	if len(result.Content) != 1 {
+		t.Fatalf("Expected 1 content item, got %d", len(result.Content))
+	}
+	if result.Content[0].Type != "text" {
+		t.Errorf("Expected content type='text', got '%s'", result.Content[0].Type)
+	}
+	if result.Content[0].Text != "Something went wrong" {
+		t.Errorf("Expected text='Something went wrong', got '%s'", result.Content[0].Text)
 	}
 	if !result.IsError {
 		t.Error("Expected IsError to be true")
 	}
 }
 
-func TestMCPContent_Text(t *testing.T) {
-	content := MCPContent{
-		Type: "text",
-		Text: "Hello, world!",
-	}
+func TestImageResult(t *testing.T) {
+	result := ImageResult("base64data==", "image/png")
 
-	if content.Type != "text" {
-		t.Errorf("Expected Type 'text', got '%s'", content.Type)
+	if len(result.Content) != 1 {
+		t.Fatalf("Expected 1 content item, got %d", len(result.Content))
 	}
-	if content.Text != "Hello, world!" {
-		t.Errorf("Expected Text 'Hello, world!', got '%s'", content.Text)
+	if result.Content[0].Type != "image" {
+		t.Errorf("Expected content type='image', got '%s'", result.Content[0].Type)
+	}
+	if result.Content[0].Data != "base64data==" {
+		t.Errorf("Expected data='base64data==', got '%s'", result.Content[0].Data)
+	}
+	if result.Content[0].MimeType != "image/png" {
+		t.Errorf("Expected mimeType='image/png', got '%s'", result.Content[0].MimeType)
+	}
+	if result.IsError {
+		t.Error("Expected IsError to be false")
 	}
 }
 
-func TestMCPContent_Image(t *testing.T) {
-	content := MCPContent{
-		Type:     "image",
-		Data:     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-		MimeType: "image/png",
-	}
-
-	if content.Type != "image" {
-		t.Errorf("Expected Type 'image', got '%s'", content.Type)
-	}
-	if content.MimeType != "image/png" {
-		t.Errorf("Expected MimeType 'image/png', got '%s'", content.MimeType)
-	}
-}
-
-func TestCreateSDKMCPServer(t *testing.T) {
-	tools := []MCPTool{
-		{Name: "add", Description: "Add numbers"},
-	}
-
-	config := CreateSDKMCPServer("math-server", "1.0.0", tools)
-
-	if config.Type != "sdk" {
-		t.Errorf("Expected Type 'sdk', got '%s'", config.Type)
-	}
-	if config.Name != "math-server" {
-		t.Errorf("Expected Name 'math-server', got '%s'", config.Name)
-	}
-	if config.Server == nil {
-		t.Fatal("Expected Server to be non-nil")
-	}
-	if config.Server.Name() != "math-server" {
-		t.Errorf("Expected Server.Name 'math-server', got '%s'", config.Server.Name())
-	}
-	if config.Server.Version() != "1.0.0" {
-		t.Errorf("Expected Server.Version '1.0.0', got '%s'", config.Server.Version())
-	}
-	if len(config.Server.Tools()) != 1 {
-		t.Errorf("Expected 1 tool, got %d", len(config.Server.Tools()))
-	}
-}
-
-func TestSettingSource_Constants(t *testing.T) {
+func TestImageResult_DifferentMimeTypes(t *testing.T) {
 	tests := []struct {
-		source   SettingSource
-		expected string
+		mimeType string
 	}{
-		{SettingSourceUser, "user"},
-		{SettingSourceProject, "project"},
-		{SettingSourceLocal, "local"},
+		{"image/png"},
+		{"image/jpeg"},
+		{"image/gif"},
+		{"image/webp"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.expected, func(t *testing.T) {
-			if string(tt.source) != tt.expected {
-				t.Errorf("Expected %s, got %s", tt.expected, string(tt.source))
+		t.Run(tt.mimeType, func(t *testing.T) {
+			result := ImageResult("data", tt.mimeType)
+			if result.Content[0].MimeType != tt.mimeType {
+				t.Errorf("Expected mimeType='%s', got '%s'", tt.mimeType, result.Content[0].MimeType)
 			}
 		})
 	}
 }
 
-func TestAgentDefinition_Fields(t *testing.T) {
-	agent := AgentDefinition{
-		Description: "A test agent",
-		Prompt:      "You are a test agent",
-		Tools:       []string{"read_file", "write_file"},
-		Model:       "sonnet",
-	}
-
-	if agent.Description != "A test agent" {
-		t.Errorf("Expected Description to match")
-	}
-	if agent.Prompt != "You are a test agent" {
-		t.Errorf("Expected Prompt to match")
-	}
-	if len(agent.Tools) != 2 {
-		t.Errorf("Expected 2 tools, got %d", len(agent.Tools))
-	}
-	if agent.Model != "sonnet" {
-		t.Errorf("Expected Model 'sonnet', got '%s'", agent.Model)
-	}
-}
-
-func TestSandboxSettings_Fields(t *testing.T) {
-	settings := SandboxSettings{
-		Enabled:                   true,
-		AutoAllowBashIfSandboxed:  true,
-		ExcludedCommands:          []string{"docker"},
-		AllowUnsandboxedCommands:  false,
-		EnableWeakerNestedSandbox: true,
-		Network: &SandboxNetworkConfig{
-			AllowUnixSockets:    []string{"/var/run/docker.sock"},
-			AllowAllUnixSockets: false,
-			AllowLocalBinding:   true,
-			HTTPProxyPort:       8080,
-			SOCKSProxyPort:      1080,
-		},
-		IgnoreViolations: &SandboxIgnoreViolations{
-			File:    []string{"/tmp"},
-			Network: []string{"localhost"},
-		},
-	}
-
-	if !settings.Enabled {
-		t.Error("Expected Enabled to be true")
-	}
-	if !settings.AutoAllowBashIfSandboxed {
-		t.Error("Expected AutoAllowBashIfSandboxed to be true")
-	}
-	if len(settings.ExcludedCommands) != 1 {
-		t.Errorf("Expected 1 excluded command, got %d", len(settings.ExcludedCommands))
-	}
-	if settings.Network == nil {
-		t.Fatal("Expected Network to be non-nil")
-	}
-	if settings.Network.HTTPProxyPort != 8080 {
-		t.Errorf("Expected HTTPProxyPort 8080, got %d", settings.Network.HTTPProxyPort)
-	}
-	if settings.IgnoreViolations == nil {
-		t.Fatal("Expected IgnoreViolations to be non-nil")
-	}
-	if len(settings.IgnoreViolations.File) != 1 {
-		t.Errorf("Expected 1 file violation, got %d", len(settings.IgnoreViolations.File))
-	}
-}
-
-func TestSdkPluginConfig_Fields(t *testing.T) {
-	config := SdkPluginConfig{
-		Type: "local",
-		Path: "/path/to/plugin",
-	}
-
-	if config.Type != "local" {
-		t.Errorf("Expected Type 'local', got '%s'", config.Type)
-	}
-	if config.Path != "/path/to/plugin" {
-		t.Errorf("Expected Path '/path/to/plugin', got '%s'", config.Path)
-	}
-}
-
-func TestSdkBeta_Constants(t *testing.T) {
-	if SdkBetaContext1M != "context-1m-2025-08-07" {
-		t.Errorf("Expected SdkBetaContext1M 'context-1m-2025-08-07', got '%s'", SdkBetaContext1M)
-	}
-}
-
-func TestSystemPromptPreset_Fields(t *testing.T) {
-	preset := SystemPromptPreset{
-		Type:   "preset",
-		Preset: "claude_code",
-		Append: "Additional instructions",
-	}
-
-	if preset.Type != "preset" {
-		t.Errorf("Expected Type 'preset', got '%s'", preset.Type)
-	}
-	if preset.Preset != "claude_code" {
-		t.Errorf("Expected Preset 'claude_code', got '%s'", preset.Preset)
-	}
-	if preset.Append != "Additional instructions" {
-		t.Errorf("Expected Append to match")
-	}
-}
-
-func TestToolsPreset_Fields(t *testing.T) {
-	preset := ToolsPreset{
-		Type:   "preset",
-		Preset: "claude_code",
-	}
-
-	if preset.Type != "preset" {
-		t.Errorf("Expected Type 'preset', got '%s'", preset.Type)
-	}
-	if preset.Preset != "claude_code" {
-		t.Errorf("Expected Preset 'claude_code', got '%s'", preset.Preset)
-	}
-}
-
 // Benchmark tests
 
-func BenchmarkNewMCPServer(b *testing.B) {
-	tools := []MCPTool{
-		{Name: "tool1", Description: "Tool 1"},
-		{Name: "tool2", Description: "Tool 2"},
+func BenchmarkSimpleInputSchema(b *testing.B) {
+	fields := map[string]string{
+		"name":   "string",
+		"age":    "integer",
+		"active": "boolean",
+		"score":  "number",
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = NewMCPServer("server", "1.0.0", tools)
+		_ = SimpleInputSchema(fields)
 	}
 }
 
-func BenchmarkCreateSDKMCPServer(b *testing.B) {
-	tools := []MCPTool{
-		{Name: "tool1", Description: "Tool 1"},
+func BenchmarkTextResult(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = TextResult("benchmark result text")
 	}
+}
+
+func BenchmarkTool(b *testing.B) {
+	handler := func(ctx context.Context, args map[string]any) (MCPToolResult, error) {
+		return TextResult("result"), nil
+	}
+	schema := SimpleInputSchema(map[string]string{"arg": "string"})
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = CreateSDKMCPServer("server", "1.0.0", tools)
+		_ = Tool("bench", "benchmark tool", schema, handler)
 	}
 }

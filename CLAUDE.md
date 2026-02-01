@@ -31,8 +31,8 @@ go mod tidy
 - `claude.go` - Main SDK entry point with `Query()` and `QueryStreaming()` functions
 - `client.go` - `Client` for interactive sessions
 - `options.go` - Configuration options and `With*` functional option functions
-- `types.go` - Public type definitions (messages, content blocks, hooks, permissions)
-- `mcp.go` - MCP server and tool definitions
+- `types.go` - All public type definitions (messages, content blocks, hooks, permissions, MCP configs)
+- `mcp.go` - MCP helper functions (`Tool()`, `TextResult()`, `ErrorResult()`, etc.)
 - `errors.go` - Error types
 - `messages.go` - Message parsing logic
 - `internal/` - Internal implementation details
