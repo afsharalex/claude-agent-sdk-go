@@ -100,9 +100,9 @@ func (t *SubprocessTransport) findCLI() (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("Claude Code not found. Install with:\n" +
+	return "", fmt.Errorf("claude code not found, install with:\n" +
 		"  npm install -g @anthropic-ai/claude-code\n\n" +
-		"Or provide the path via Options:\n" +
+		"or provide the path via Options:\n" +
 		"  WithCLIPath(\"/path/to/claude\")")
 }
 
@@ -310,10 +310,10 @@ func (t *SubprocessTransport) buildCommand() ([]string, error) {
 			return nil, err
 		}
 		if _, err := tempFile.Write(agentsJSON); err != nil {
-			tempFile.Close()
+			_ = tempFile.Close()
 			return nil, err
 		}
-		tempFile.Close()
+		_ = tempFile.Close()
 		t.tempFiles = append(t.tempFiles, tempFile.Name())
 
 		for i, arg := range cmd {
@@ -427,15 +427,15 @@ func (t *SubprocessTransport) Connect(ctx context.Context) error {
 
 	if err := t.process.Start(); err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("Claude Code not found at: %s", t.cliPath)
+			return fmt.Errorf("claude code not found at: %s", t.cliPath)
 		}
-		return fmt.Errorf("failed to start Claude Code: %w", err)
+		return fmt.Errorf("failed to start claude code: %w", err)
 	}
 
 	go t.handleStderr()
 
 	if !t.isStreaming {
-		t.stdin.Close()
+		_ = t.stdin.Close()
 		t.stdin = nil
 	}
 
@@ -458,7 +458,7 @@ func (t *SubprocessTransport) handleStderr() {
 		if t.options.Stderr != nil {
 			t.options.Stderr(line)
 		} else if t.options.DebugStderr != nil {
-			fmt.Fprintln(t.options.DebugStderr, line)
+			_, _ = fmt.Fprintln(t.options.DebugStderr, line)
 		}
 	}
 }
@@ -571,7 +571,7 @@ func (t *SubprocessTransport) Close() error {
 	t.closed = true
 
 	for _, f := range t.tempFiles {
-		os.Remove(f)
+		_ = os.Remove(f)
 	}
 	t.tempFiles = nil
 
@@ -579,19 +579,19 @@ func (t *SubprocessTransport) Close() error {
 
 	t.writeMu.Lock()
 	if t.stdin != nil {
-		t.stdin.Close()
+		_ = t.stdin.Close()
 		t.stdin = nil
 	}
 	t.writeMu.Unlock()
 
 	if t.stderr != nil {
-		t.stderr.Close()
+		_ = t.stderr.Close()
 		t.stderr = nil
 	}
 
 	if t.process != nil && t.process.Process != nil {
-		t.process.Process.Kill()
-		t.process.Wait()
+		_ = t.process.Process.Kill()
+		_ = t.process.Wait()
 	}
 
 	t.process = nil

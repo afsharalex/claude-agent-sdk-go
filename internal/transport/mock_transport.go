@@ -30,12 +30,12 @@ type MockTransport struct {
 	messageCh chan ReadResult
 
 	// Track method calls for assertions
-	ConnectCalls   int
-	WriteCalls     int
-	ReadCalls      int
-	CloseCalls     int
-	EndInputCalls  int
-	IsReadyCalls   int
+	ConnectCalls  int
+	WriteCalls    int
+	ReadCalls     int
+	CloseCalls    int
+	EndInputCalls int
+	IsReadyCalls  int
 
 	// OnWrite callback for custom write handling
 	OnWrite func(data string) error

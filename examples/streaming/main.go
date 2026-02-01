@@ -35,8 +35,8 @@ func main() {
 
 	// Create client with options
 	client := claude.NewClient(
-		// claude.WithCwd("/path/to/project"), // Uncomment to set working directory
-		// claude.WithModel("claude-sonnet-4-5"), // Uncomment to set model
+	// claude.WithCwd("/path/to/project"), // Uncomment to set working directory
+	// claude.WithModel("claude-sonnet-4-5"), // Uncomment to set model
 	)
 
 	// Connect to Claude
@@ -44,7 +44,7 @@ func main() {
 	if err := client.Connect(ctx); err != nil {
 		log.Fatalf("Failed to connect: %v\n", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	fmt.Println("Connected! Type your messages (Ctrl+C to quit)")
 

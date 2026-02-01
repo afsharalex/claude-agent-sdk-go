@@ -33,7 +33,7 @@ coverage-open: coverage
 coverage-check threshold="75":
     #!/usr/bin/env bash
     set -euo pipefail
-    go test -race -coverprofile=coverage.out github.com/anthropics/claude-agent-sdk-go
+    go test -race -coverprofile=coverage.out github.com/afsharalex/claude-agent-sdk-go
     coverage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
     threshold={{threshold}}
     echo "Main package coverage: ${coverage}%"

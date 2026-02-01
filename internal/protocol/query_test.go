@@ -34,7 +34,7 @@ func TestNewQuery_Defaults(t *testing.T) {
 	}
 
 	// Clean up
-	q.Close()
+	_ = q.Close()
 }
 
 func TestNewQuery_WithTimeouts(t *testing.T) {
@@ -46,7 +46,7 @@ func TestNewQuery_WithTimeouts(t *testing.T) {
 		InitializeTimeout:  30 * time.Second,
 		StreamCloseTimeout: 45 * time.Second,
 	})
-	defer q.Close()
+	defer func() { _ = q.Close() }()
 
 	if q.initTimeout != 30*time.Second {
 		t.Errorf("Expected initTimeout 30s, got %v", q.initTimeout)
@@ -63,7 +63,7 @@ func TestNewQuery_DefaultTimeouts(t *testing.T) {
 		Transport:       mock,
 		IsStreamingMode: true,
 	})
-	defer q.Close()
+	defer func() { _ = q.Close() }()
 
 	if q.initTimeout != 60*time.Second {
 		t.Errorf("Expected default initTimeout 60s, got %v", q.initTimeout)
@@ -80,7 +80,7 @@ func TestQuery_Initialize_NonStreamingMode(t *testing.T) {
 		Transport:       mock,
 		IsStreamingMode: false,
 	})
-	defer q.Close()
+	defer func() { _ = q.Close() }()
 
 	result, err := q.Initialize(context.Background())
 
@@ -99,7 +99,7 @@ func TestQuery_InitResult(t *testing.T) {
 		Transport:       mock,
 		IsStreamingMode: true,
 	})
-	defer q.Close()
+	defer func() { _ = q.Close() }()
 
 	// Initially nil
 	if q.InitResult() != nil {
@@ -125,7 +125,7 @@ func TestQuery_ReceiveMessages(t *testing.T) {
 		Transport:       mock,
 		IsStreamingMode: true,
 	})
-	defer q.Close()
+	defer func() { _ = q.Close() }()
 
 	ch := q.ReceiveMessages()
 	if ch == nil {
@@ -461,7 +461,7 @@ func TestQuery_WithHooks(t *testing.T) {
 		IsStreamingMode: true,
 		Hooks:           hooks,
 	})
-	defer q.Close()
+	defer func() { _ = q.Close() }()
 
 	if len(q.hooks) != 1 {
 		t.Errorf("Expected 1 hook event, got %d", len(q.hooks))
@@ -480,7 +480,7 @@ func TestQuery_WithCanUseTool(t *testing.T) {
 		IsStreamingMode: true,
 		CanUseTool:      canUseTool,
 	})
-	defer q.Close()
+	defer func() { _ = q.Close() }()
 
 	if q.canUseTool == nil {
 		t.Error("Expected canUseTool to be set")
@@ -503,7 +503,7 @@ func TestQuery_WithSDKMCPServers(t *testing.T) {
 		IsStreamingMode: true,
 		SDKMCPServers:   servers,
 	})
-	defer q.Close()
+	defer func() { _ = q.Close() }()
 
 	if len(q.sdkMCPServers) != 1 {
 		t.Errorf("Expected 1 MCP server, got %d", len(q.sdkMCPServers))
@@ -521,7 +521,7 @@ func BenchmarkNewQuery(b *testing.B) {
 			Transport:       mock,
 			IsStreamingMode: true,
 		})
-		q.Close()
+		_ = q.Close()
 	}
 }
 

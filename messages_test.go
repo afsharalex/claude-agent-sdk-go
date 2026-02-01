@@ -7,20 +7,6 @@ import (
 	"testing"
 )
 
-func loadTestData(t *testing.T, filename string) map[string]any {
-	t.Helper()
-	path := filepath.Join("testdata", filename)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("Failed to load test data from %s: %v", path, err)
-	}
-	var result map[string]any
-	if err := json.Unmarshal(data, &result); err != nil {
-		t.Fatalf("Failed to unmarshal test data from %s: %v", path, err)
-	}
-	return result
-}
-
 func TestParseMessage_NilData(t *testing.T) {
 	_, err := ParseMessage(nil)
 	if err == nil {
@@ -747,7 +733,7 @@ func TestParseContentBlock(t *testing.T) {
 
 func TestParseMessage_FromTestDataFiles(t *testing.T) {
 	tests := []struct {
-		filename    string
+		filename     string
 		expectedType string
 	}{
 		{"user_message.json", "user"},

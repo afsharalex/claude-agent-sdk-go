@@ -297,10 +297,10 @@ type HookSpecificOutput interface {
 	hookSpecificOutput()
 }
 
-func (PreToolUseHookSpecificOutput) hookSpecificOutput()        {}
-func (PostToolUseHookSpecificOutput) hookSpecificOutput()       {}
+func (PreToolUseHookSpecificOutput) hookSpecificOutput()         {}
+func (PostToolUseHookSpecificOutput) hookSpecificOutput()        {}
 func (PostToolUseFailureHookSpecificOutput) hookSpecificOutput() {}
-func (UserPromptSubmitHookSpecificOutput) hookSpecificOutput()  {}
+func (UserPromptSubmitHookSpecificOutput) hookSpecificOutput()   {}
 
 // HookDecision represents the decision field in hook output.
 type HookDecision string
@@ -604,7 +604,7 @@ type MCPSSEServerConfig struct {
 	Headers map[string]string `json:"headers,omitempty"`
 }
 
-func (MCPSSEServerConfig) mcpServerConfig()   {}
+func (MCPSSEServerConfig) mcpServerConfig()  {}
 func (c MCPSSEServerConfig) GetType() string { return "sse" }
 
 // MCPHTTPServerConfig configures an MCP server that communicates via HTTP.
@@ -614,7 +614,7 @@ type MCPHTTPServerConfig struct {
 	Headers map[string]string `json:"headers,omitempty"`
 }
 
-func (MCPHTTPServerConfig) mcpServerConfig()   {}
+func (MCPHTTPServerConfig) mcpServerConfig()  {}
 func (c MCPHTTPServerConfig) GetType() string { return "http" }
 
 // MCPSDKServerConfig configures an in-process SDK MCP server.
@@ -624,7 +624,7 @@ type MCPSDKServerConfig struct {
 	Server *MCPServer `json:"-"` // The server instance, not serialized
 }
 
-func (MCPSDKServerConfig) mcpServerConfig()   {}
+func (MCPSDKServerConfig) mcpServerConfig()  {}
 func (c MCPSDKServerConfig) GetType() string { return "sdk" }
 
 // MCPServer represents an in-process MCP server.

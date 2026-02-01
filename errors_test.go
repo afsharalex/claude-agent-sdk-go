@@ -263,10 +263,10 @@ func TestErrorHierarchy(t *testing.T) {
 	sdkError := NewClaudeSDKError("sdk error")
 
 	// CLINotFoundError embeds CLIConnectionError
-	var _ *CLIConnectionError = &cliNotFound.CLIConnectionError
+	var _ = &cliNotFound.CLIConnectionError
 
 	// CLIConnectionError embeds ClaudeSDKError
-	var _ *ClaudeSDKError = &cliConnection.ClaudeSDKError
+	var _ = &cliConnection.ClaudeSDKError
 
 	// All implement error interface
 	var _ error = sdkError

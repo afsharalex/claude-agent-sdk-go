@@ -410,13 +410,13 @@ func Query(ctx context.Context, prompt string, opts ...Option) (<-chan Message, 
 			errors <- err
 			return
 		}
-		defer t.Close()
+		defer func() { _ = t.Close() }()
 
 		q := protocol.NewQuery(protocol.QueryConfig{
 			Transport:       t,
 			IsStreamingMode: false,
 		})
-		defer q.Close()
+		defer func() { _ = q.Close() }()
 
 		q.Start(ctx)
 
@@ -480,7 +480,7 @@ func QueryStreaming(ctx context.Context, inputCh <-chan map[string]any, opts ...
 			errors <- err
 			return
 		}
-		defer t.Close()
+		defer func() { _ = t.Close() }()
 
 		var sdkMCPServers map[string]*types.MCPServer
 		if servers, ok := options.MCPServers.(map[string]MCPServerConfig); ok {
@@ -494,7 +494,7 @@ func QueryStreaming(ctx context.Context, inputCh <-chan map[string]any, opts ...
 			Hooks:           toInternalHooks(options.Hooks),
 			SDKMCPServers:   sdkMCPServers,
 		})
-		defer q.Close()
+		defer func() { _ = q.Close() }()
 
 		q.Start(ctx)
 

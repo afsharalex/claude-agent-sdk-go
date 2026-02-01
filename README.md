@@ -10,7 +10,7 @@ go get github.com/afsharalex/claude-agent-sdk-go
 
 **Prerequisites:**
 
-- Go 1.21+
+- Go 1.25+
 - Claude Code CLI installed: `curl -fsSL https://claude.ai/install.sh | bash`
 
 ## Quick Start

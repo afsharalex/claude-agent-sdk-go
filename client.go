@@ -117,7 +117,7 @@ func (c *Client) Connect(ctx context.Context) error {
 
 	// Initialize
 	if _, err := c.query.Initialize(ctx); err != nil {
-		c.query.Close()
+		_ = c.query.Close()
 		return err
 	}
 
@@ -346,7 +346,7 @@ func (c *Client) Close() error {
 	c.connected = false
 
 	if c.query != nil {
-		c.query.Close()
+		_ = c.query.Close()
 		c.query = nil
 	}
 

@@ -228,7 +228,7 @@ func TestClient_ReceiveResponse(t *testing.T) {
 	select {
 	case _, ok := <-ch:
 		if ok {
-			// Received something unexpectedly
+			t.Error("Expected channel to be closed, but received a message")
 		}
 	case <-time.After(200 * time.Millisecond):
 		t.Error("Expected channel to close when context is done")

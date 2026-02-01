@@ -478,8 +478,8 @@ func TestSubprocessTransport_BuildCommand_ExtraArgs(t *testing.T) {
 		isStreaming: true,
 		options: &Options{
 			ExtraArgs: map[string]*string{
-				"custom-flag":      &flagValue,
-				"boolean-flag":     nil,
+				"custom-flag":  &flagValue,
+				"boolean-flag": nil,
 			},
 		},
 	}

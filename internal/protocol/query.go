@@ -508,9 +508,10 @@ func (q *Query) handleMCPMessage(ctx context.Context, request map[string]any) (m
 				content := make([]map[string]any, 0, len(toolResult.Content))
 				for _, c := range toolResult.Content {
 					item := map[string]any{"type": c.Type}
-					if c.Type == "text" {
+					switch c.Type {
+					case "text":
 						item["text"] = c.Text
-					} else if c.Type == "image" {
+					case "image":
 						item["data"] = c.Data
 						item["mimeType"] = c.MimeType
 					}
@@ -551,7 +552,7 @@ func (q *Query) sendControlRequest(ctx context.Context, request map[string]any, 
 	}
 
 	randBytes := make([]byte, 4)
-	rand.Read(randBytes)
+	_, _ = rand.Read(randBytes)
 	requestID := fmt.Sprintf("req_%d_%s", q.requestCounter.Add(1), hex.EncodeToString(randBytes))
 
 	responseCh := make(chan map[string]any, 1)
@@ -592,7 +593,7 @@ func (q *Query) sendControlRequest(ctx context.Context, request map[string]any, 
 
 		if response["subtype"] == "error" {
 			errMsg, _ := response["error"].(string)
-			return nil, fmt.Errorf(errMsg)
+			return nil, fmt.Errorf("%s", errMsg)
 		}
 
 		if respData, ok := response["response"].(map[string]any); ok {
@@ -617,7 +618,7 @@ func (q *Query) sendSuccessResponse(ctx context.Context, requestID string, respo
 		return
 	}
 
-	q.transport.Write(ctx, string(data)+"\n")
+	_ = q.transport.Write(ctx, string(data)+"\n")
 }
 
 func (q *Query) sendErrorResponse(ctx context.Context, requestID string, errMsg string) {
@@ -635,7 +636,7 @@ func (q *Query) sendErrorResponse(ctx context.Context, requestID string, errMsg 
 		return
 	}
 
-	q.transport.Write(ctx, string(data)+"\n")
+	_ = q.transport.Write(ctx, string(data)+"\n")
 }
 
 // GetMCPStatus gets current MCP server connection status.
@@ -684,10 +685,10 @@ func (q *Query) StreamInput(ctx context.Context, messages <-chan map[string]any)
 	for {
 		select {
 		case <-ctx.Done():
-			q.transport.EndInput()
+			_ = q.transport.EndInput()
 			return
 		case <-q.ctx.Done():
-			q.transport.EndInput()
+			_ = q.transport.EndInput()
 			return
 		case msg, ok := <-messages:
 			if !ok {
@@ -698,7 +699,7 @@ func (q *Query) StreamInput(ctx context.Context, messages <-chan map[string]any)
 					case <-ctx.Done():
 					}
 				}
-				q.transport.EndInput()
+				_ = q.transport.EndInput()
 				return
 			}
 
@@ -706,7 +707,7 @@ func (q *Query) StreamInput(ctx context.Context, messages <-chan map[string]any)
 			if err != nil {
 				continue
 			}
-			q.transport.Write(ctx, string(data)+"\n")
+			_ = q.transport.Write(ctx, string(data)+"\n")
 		}
 	}
 }

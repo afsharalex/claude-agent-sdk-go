@@ -95,7 +95,7 @@ func main() {
 	if err := client.Connect(ctx); err != nil {
 		log.Fatalf("Failed to connect: %v\n", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Send a query that will use the calculator tools
 	fmt.Println("Sending query...")

@@ -3,7 +3,7 @@ package protocol
 
 // SDKControlRequest represents a control request from/to CLI.
 type SDKControlRequest struct {
-	Type      string         `json:"type"`       // "control_request"
+	Type      string         `json:"type"` // "control_request"
 	RequestID string         `json:"request_id"`
 	Request   map[string]any `json:"request"`
 }
