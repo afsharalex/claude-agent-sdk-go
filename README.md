@@ -150,13 +150,13 @@ client := claude.NewClient(
 )
 ```
 
-#### Benefits Over External MCP Servers
+#### Why Use In-Process Tools?
 
-- **No subprocess management** - Runs in the same process as your application
-- **Better performance** - No IPC overhead for tool calls
-- **Simpler deployment** - Single binary instead of multiple processes
-- **Easier debugging** - All code runs in the same process
-- **Type safety** - Direct Go function calls
+- **Runs in-process** - No need to spawn or manage child processes
+- **Zero IPC latency** - Tool calls are direct function invocations
+- **Single deployment artifact** - Ship one binary with embedded tools
+- **Unified debugging** - Set breakpoints anywhere in your application
+- **Native type checking** - Go's compiler validates tool signatures
 
 #### Mixed Server Support
 
@@ -312,6 +312,14 @@ This Go SDK implements full feature parity with the [Python Claude Agent SDK](ht
 | `snake_case` | `camelCase` / `PascalCase` |
 | `dataclass` | Go structs with JSON tags |
 
+## Attribution
+
+This project is a Go implementation inspired by Anthropic's [Claude Agent SDK for Python](https://github.com/anthropics/claude-agent-sdk-python). The Python SDK served as the reference implementation for the API design and feature set.
+
 ## License
 
-Use of this SDK is governed by Anthropic's [Commercial Terms of Service](https://www.anthropic.com/legal/commercial-terms).
+MIT License - see [LICENSE](LICENSE) for details.
+
+This project is a community-developed Go port. The original [Python SDK](https://github.com/anthropics/claude-agent-sdk-python) by Anthropic is also MIT licensed.
+
+**Note:** Use of Claude and Claude Code is subject to Anthropic's [Terms of Service](https://www.anthropic.com/legal/consumer-terms).
