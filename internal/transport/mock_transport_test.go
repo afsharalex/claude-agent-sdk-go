@@ -159,10 +159,8 @@ func TestMockTransport_ReadMessages_ContextCancellation(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Drain remaining messages - may get context error
-	for result := range ch {
-		if result.Error != nil && result.Error != context.Canceled {
-			// Just consume any remaining results
-		}
+	for range ch {
+		// Just consume any remaining results
 	}
 }
 
