@@ -1,0 +1,16 @@
+{
+  "type": "user",
+  "content": [
+    {
+      "type": "text",
+      "text": "First text block"
+    },
+    {
+      "type": "tool_result",
+      "tool_use_id": "tool-789",
+      "content": "Tool output",
+      "is_error": false
+    }
+  ],
+  "uuid": "user-456-def"
+}

@@ -1,0 +1,19 @@
+{
+  "type": "result",
+  "duration_ms": 1500,
+  "duration_api_ms": 1200,
+  "is_error": false,
+  "num_turns": 3,
+  "session_id": "session-789-xyz",
+  "total_cost_usd": 0.0045,
+  "usage": {
+    "input_tokens": 100,
+    "output_tokens": 250,
+    "cache_read_input_tokens": 50,
+    "cache_creation_input_tokens": 25
+  },
+  "structured_output": {
+    "status": "completed",
+    "result": "success"
+  }
+}

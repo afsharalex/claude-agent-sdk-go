@@ -1,0 +1,11 @@
+{
+  "type": "system",
+  "subtype": "init",
+  "session_id": "session-init-123",
+  "tools": ["read_file", "write_file", "execute_command"],
+  "mcp_servers": {
+    "filesystem": {
+      "status": "connected"
+    }
+  }
+}

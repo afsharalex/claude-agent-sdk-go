@@ -1,0 +1,9 @@
+{
+  "type": "assistant",
+  "content": [],
+  "model": "claude-3-opus-20240229",
+  "error": {
+    "type": "rate_limit",
+    "message": "Too many requests"
+  }
+}
