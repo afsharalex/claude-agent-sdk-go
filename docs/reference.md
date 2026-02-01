@@ -45,6 +45,64 @@ Performs a streaming query with an input channel for sending multiple messages. 
 
 ---
 
+### WithClient
+
+```go
+func WithClient(ctx context.Context, fn func(*Client) error, opts ...Option) error
+```
+
+Creates a client, executes the function, and ensures cleanup. This is the recommended pattern for short-lived client operations.
+
+**Parameters:**
+- `ctx` - Context for cancellation and timeouts
+- `fn` - Function to execute with the client
+- `opts` - Optional configuration options
+
+**Returns:**
+- `error` - Error from connection or the executed function
+
+**Example:**
+```go
+err := claude.WithClient(ctx, func(c *claude.Client) error {
+    c.Query(ctx, "Hello")
+    for msg := range c.ReceiveResponse(ctx) {
+        // handle messages
+    }
+    return nil
+}, claude.WithCwd("/path"))
+```
+
+---
+
+### QueryWithSession
+
+```go
+func QueryWithSession(ctx context.Context, sessionID, prompt string, opts ...Option) (<-chan Message, <-chan error)
+```
+
+Performs a one-shot query with a specific session ID. This is useful for maintaining conversation context across multiple independent queries without using the full Client interface.
+
+**Parameters:**
+- `ctx` - Context for cancellation and timeouts
+- `sessionID` - Session ID to resume (empty string creates new session)
+- `prompt` - The prompt to send to Claude
+- `opts` - Optional configuration options
+
+**Returns:**
+- `<-chan Message` - Channel receiving response messages
+- `<-chan error` - Channel receiving errors
+
+**Example:**
+```go
+// First query creates a session
+messages, errors := claude.QueryWithSession(ctx, "", "Remember: my name is Alice")
+
+// Later queries can resume the session
+messages, errors := claude.QueryWithSession(ctx, "session-123", "What is my name?")
+```
+
+---
+
 ### NewClient
 
 ```go
@@ -504,6 +562,24 @@ Sets the system prompt.
 
 ---
 
+### WithAppendSystemPrompt
+
+```go
+func WithAppendSystemPrompt(text string) Option
+```
+
+Appends text to the system prompt. If no system prompt is set, this becomes the system prompt. Can be called multiple times to append additional text.
+
+**Example:**
+```go
+client := claude.NewClient(
+    claude.WithSystemPrompt("You are a helpful assistant."),
+    claude.WithAppendSystemPrompt("Always respond in JSON format."),
+)
+```
+
+---
+
 ### WithMCPServers
 
 ```go
@@ -627,6 +703,42 @@ func WithEnv(env map[string]string) Option
 ```
 
 Sets additional environment variables.
+
+---
+
+### WithEnvVar
+
+```go
+func WithEnvVar(key, value string) Option
+```
+
+Sets a single environment variable. Can be called multiple times to set multiple variables.
+
+**Example:**
+```go
+client := claude.NewClient(
+    claude.WithEnvVar("API_KEY", "secret"),
+    claude.WithEnvVar("DEBUG", "true"),
+)
+```
+
+---
+
+### WithDebugStderr
+
+```go
+func WithDebugStderr() Option
+```
+
+Enables stderr output to os.Stderr for debugging. This is a convenience wrapper around `WithStderr` that prints CLI stderr output to standard error.
+
+**Example:**
+```go
+// Enable debug output
+client := claude.NewClient(
+    claude.WithDebugStderr(),
+)
+```
 
 ---
 
@@ -843,6 +955,76 @@ type MCPContent struct {
 ---
 
 ## Error Types
+
+### Error Helper Functions
+
+#### IsConnectionError
+
+```go
+func IsConnectionError(err error) bool
+```
+
+Reports whether err is a `CLIConnectionError`. Works with wrapped errors.
+
+---
+
+#### IsCLINotFoundError
+
+```go
+func IsCLINotFoundError(err error) bool
+```
+
+Reports whether err is a `CLINotFoundError`. Works with wrapped errors.
+
+---
+
+#### IsProcessError
+
+```go
+func IsProcessError(err error) bool
+```
+
+Reports whether err is a `ProcessError`. Works with wrapped errors.
+
+---
+
+#### AsConnectionError
+
+```go
+func AsConnectionError(err error) (*CLIConnectionError, bool)
+```
+
+Extracts a `CLIConnectionError` from err. Returns the error and true if found, nil and false otherwise.
+
+---
+
+#### AsCLINotFoundError
+
+```go
+func AsCLINotFoundError(err error) (*CLINotFoundError, bool)
+```
+
+Extracts a `CLINotFoundError` from err. Returns the error and true if found, nil and false otherwise.
+
+---
+
+#### AsProcessError
+
+```go
+func AsProcessError(err error) (*ProcessError, bool)
+```
+
+Extracts a `ProcessError` from err. Returns the error and true if found, nil and false otherwise.
+
+**Example:**
+```go
+if procErr, ok := claude.AsProcessError(err); ok {
+    fmt.Printf("Exit code: %d\n", procErr.ExitCode)
+    fmt.Printf("Stderr: %s\n", procErr.Stderr)
+}
+```
+
+---
 
 ### ClaudeSDKError
 

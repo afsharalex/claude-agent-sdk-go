@@ -1,6 +1,9 @@
 package claude
 
-import "io"
+import (
+	"io"
+	"os"
+)
 
 // Options configures Claude SDK behavior.
 type Options struct {
@@ -14,6 +17,11 @@ type Options struct {
 	// SystemPrompt is the system prompt to use.
 	// Can be a string or a SystemPromptPreset.
 	SystemPrompt any // string | *SystemPromptPreset
+
+	// AppendSystemPrompt is text to append to the system prompt.
+	// If SystemPrompt is set, this is appended to it.
+	// If SystemPrompt is not set, this becomes the system prompt.
+	AppendSystemPrompt string
 
 	// MCPServers configures MCP servers to use.
 	// Can be a map of server configs or a path to a config file.
@@ -388,5 +396,39 @@ func WithOutputFormat(format map[string]any) Option {
 func WithEnableFileCheckpointing(enable bool) Option {
 	return func(o *Options) {
 		o.EnableFileCheckpointing = enable
+	}
+}
+
+// WithAppendSystemPrompt appends text to the system prompt.
+// If no system prompt is set, this becomes the system prompt.
+// Can be called multiple times to append additional text.
+func WithAppendSystemPrompt(text string) Option {
+	return func(o *Options) {
+		if o.AppendSystemPrompt == "" {
+			o.AppendSystemPrompt = text
+		} else {
+			o.AppendSystemPrompt = o.AppendSystemPrompt + "\n" + text
+		}
+	}
+}
+
+// WithDebugStderr enables stderr output to os.Stderr for debugging.
+// This is a convenience wrapper around WithStderr that prints to standard error.
+func WithDebugStderr() Option {
+	return func(o *Options) {
+		o.Stderr = func(line string) {
+			_, _ = os.Stderr.WriteString(line + "\n")
+		}
+	}
+}
+
+// WithEnvVar sets a single environment variable.
+// Can be called multiple times to set multiple variables.
+func WithEnvVar(key, value string) Option {
+	return func(o *Options) {
+		if o.Env == nil {
+			o.Env = make(map[string]string)
+		}
+		o.Env[key] = value
 	}
 }

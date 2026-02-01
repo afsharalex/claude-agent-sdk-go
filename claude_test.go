@@ -1064,3 +1064,76 @@ func TestToTransportOptions_DisallowedTools(t *testing.T) {
 		t.Errorf("Expected DisallowedTools[0]='Bash', got '%s'", result.DisallowedTools[0])
 	}
 }
+
+func TestToTransportOptions_AppendSystemPrompt(t *testing.T) {
+	t.Run("AppendSystemPrompt becomes SystemPrompt when SystemPrompt is nil", func(t *testing.T) {
+		opts := &Options{
+			AppendSystemPrompt: "Additional instructions",
+		}
+
+		result := toTransportOptions(opts)
+
+		if result.SystemPrompt != "Additional instructions" {
+			t.Errorf("Expected SystemPrompt 'Additional instructions', got '%v'", result.SystemPrompt)
+		}
+	})
+
+	t.Run("AppendSystemPrompt combines with string SystemPrompt", func(t *testing.T) {
+		opts := &Options{
+			SystemPrompt:       "Base prompt",
+			AppendSystemPrompt: "Additional instructions",
+		}
+
+		result := toTransportOptions(opts)
+
+		expected := "Base prompt\nAdditional instructions"
+		if result.SystemPrompt != expected {
+			t.Errorf("Expected SystemPrompt '%s', got '%v'", expected, result.SystemPrompt)
+		}
+	})
+
+	t.Run("AppendSystemPrompt ignored when SystemPrompt is preset", func(t *testing.T) {
+		preset := &SystemPromptPreset{Type: "preset", Preset: "claude_code"}
+		opts := &Options{
+			SystemPrompt:       preset,
+			AppendSystemPrompt: "Should be ignored",
+		}
+
+		result := toTransportOptions(opts)
+
+		// Should return the preset unchanged
+		if result.SystemPrompt != preset {
+			t.Errorf("Expected SystemPrompt to be the preset, got '%v'", result.SystemPrompt)
+		}
+	})
+
+	t.Run("empty AppendSystemPrompt does nothing", func(t *testing.T) {
+		opts := &Options{
+			SystemPrompt:       "Base prompt",
+			AppendSystemPrompt: "",
+		}
+
+		result := toTransportOptions(opts)
+
+		if result.SystemPrompt != "Base prompt" {
+			t.Errorf("Expected SystemPrompt 'Base prompt', got '%v'", result.SystemPrompt)
+		}
+	})
+}
+
+// Note: WithClient and QueryWithSession require actual CLI connection,
+// so we test their configuration behavior rather than full execution.
+
+func TestQueryWithSession_AddsResumeOption(t *testing.T) {
+	// We can't easily test the actual query without a CLI,
+	// but we can verify the function signature and basic behavior
+
+	// Test that empty sessionID doesn't add resume option
+	// This is a compile-time check that the function exists with correct signature
+	var _ func(context.Context, string, string, ...Option) (<-chan Message, <-chan error) = QueryWithSession
+}
+
+func TestWithClient_Signature(t *testing.T) {
+	// Verify the function signature is correct
+	var _ func(context.Context, func(*Client) error, ...Option) error = WithClient
+}

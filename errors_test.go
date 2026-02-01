@@ -330,3 +330,256 @@ func BenchmarkNewJSONDecodeError_LongLine(b *testing.B) {
 		_ = NewJSONDecodeError(longLine, err)
 	}
 }
+
+// Tests for error helper functions
+
+func TestIsConnectionError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "direct CLIConnectionError",
+			err:      NewCLIConnectionError("connection failed"),
+			expected: true,
+		},
+		{
+			name:     "wrapped CLIConnectionError",
+			err:      WrapClaudeSDKError("outer", NewCLIConnectionError("inner")),
+			expected: true,
+		},
+		{
+			name:     "CLINotFoundError (distinct type, does not match CLIConnectionError)",
+			err:      NewCLINotFoundError("not found", "/path"),
+			expected: false,
+		},
+		{
+			name:     "non-connection error",
+			err:      NewProcessError("process failed", 1, ""),
+			expected: false,
+		},
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			name:     "standard error",
+			err:      errors.New("standard error"),
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsConnectionError(tt.err)
+			if result != tt.expected {
+				t.Errorf("IsConnectionError() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestIsCLINotFoundError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "direct CLINotFoundError",
+			err:      NewCLINotFoundError("not found", "/usr/bin/claude"),
+			expected: true,
+		},
+		{
+			name:     "wrapped CLINotFoundError",
+			err:      WrapClaudeSDKError("outer", NewCLINotFoundError("inner", "/path")),
+			expected: true,
+		},
+		{
+			name:     "CLIConnectionError (not CLINotFoundError)",
+			err:      NewCLIConnectionError("connection failed"),
+			expected: false,
+		},
+		{
+			name:     "ProcessError",
+			err:      NewProcessError("process failed", 1, ""),
+			expected: false,
+		},
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsCLINotFoundError(tt.err)
+			if result != tt.expected {
+				t.Errorf("IsCLINotFoundError() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestIsProcessError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "direct ProcessError",
+			err:      NewProcessError("process failed", 1, "stderr"),
+			expected: true,
+		},
+		{
+			name:     "wrapped ProcessError",
+			err:      WrapClaudeSDKError("outer", NewProcessError("inner", 1, "")),
+			expected: true,
+		},
+		{
+			name:     "CLIConnectionError",
+			err:      NewCLIConnectionError("connection failed"),
+			expected: false,
+		},
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsProcessError(tt.err)
+			if result != tt.expected {
+				t.Errorf("IsProcessError() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestAsConnectionError(t *testing.T) {
+	t.Run("returns error when found", func(t *testing.T) {
+		originalErr := NewCLIConnectionError("connection failed")
+		wrappedErr := WrapClaudeSDKError("wrapped", originalErr)
+
+		connErr, ok := AsConnectionError(wrappedErr)
+		if !ok {
+			t.Error("Expected ok to be true")
+		}
+		if connErr == nil {
+			t.Fatal("Expected non-nil error")
+		}
+		if connErr.Message != "connection failed" {
+			t.Errorf("Expected message 'connection failed', got '%s'", connErr.Message)
+		}
+	})
+
+	t.Run("returns nil when not found", func(t *testing.T) {
+		err := NewProcessError("process failed", 1, "")
+
+		connErr, ok := AsConnectionError(err)
+		if ok {
+			t.Error("Expected ok to be false")
+		}
+		if connErr != nil {
+			t.Error("Expected nil error")
+		}
+	})
+
+	t.Run("returns nil for nil error", func(t *testing.T) {
+		connErr, ok := AsConnectionError(nil)
+		if ok {
+			t.Error("Expected ok to be false")
+		}
+		if connErr != nil {
+			t.Error("Expected nil error")
+		}
+	})
+}
+
+func TestAsCLINotFoundError(t *testing.T) {
+	t.Run("returns error when found", func(t *testing.T) {
+		originalErr := NewCLINotFoundError("not found", "/usr/bin/claude")
+		wrappedErr := WrapClaudeSDKError("wrapped", originalErr)
+
+		notFoundErr, ok := AsCLINotFoundError(wrappedErr)
+		if !ok {
+			t.Error("Expected ok to be true")
+		}
+		if notFoundErr == nil {
+			t.Fatal("Expected non-nil error")
+		}
+		if notFoundErr.CLIPath != "/usr/bin/claude" {
+			t.Errorf("Expected CLIPath '/usr/bin/claude', got '%s'", notFoundErr.CLIPath)
+		}
+	})
+
+	t.Run("returns nil when not found", func(t *testing.T) {
+		err := NewCLIConnectionError("connection failed")
+
+		notFoundErr, ok := AsCLINotFoundError(err)
+		if ok {
+			t.Error("Expected ok to be false")
+		}
+		if notFoundErr != nil {
+			t.Error("Expected nil error")
+		}
+	})
+}
+
+func TestAsProcessError(t *testing.T) {
+	t.Run("returns error when found", func(t *testing.T) {
+		originalErr := NewProcessError("process failed", 127, "command not found")
+		wrappedErr := WrapClaudeSDKError("wrapped", originalErr)
+
+		procErr, ok := AsProcessError(wrappedErr)
+		if !ok {
+			t.Error("Expected ok to be true")
+		}
+		if procErr == nil {
+			t.Fatal("Expected non-nil error")
+		}
+		if procErr.ExitCode != 127 {
+			t.Errorf("Expected ExitCode 127, got %d", procErr.ExitCode)
+		}
+		if procErr.Stderr != "command not found" {
+			t.Errorf("Expected Stderr 'command not found', got '%s'", procErr.Stderr)
+		}
+	})
+
+	t.Run("returns nil when not found", func(t *testing.T) {
+		err := NewCLIConnectionError("connection failed")
+
+		procErr, ok := AsProcessError(err)
+		if ok {
+			t.Error("Expected ok to be false")
+		}
+		if procErr != nil {
+			t.Error("Expected nil error")
+		}
+	})
+}
+
+func TestErrorHelpers_NestedWrapping(t *testing.T) {
+	// Test deeply nested error chain
+	innerErr := NewProcessError("inner", 1, "stderr")
+	midErr := WrapClaudeSDKError("middle", innerErr)
+	outerErr := WrapClaudeSDKError("outer", midErr)
+
+	if !IsProcessError(outerErr) {
+		t.Error("Expected IsProcessError to find deeply nested ProcessError")
+	}
+
+	procErr, ok := AsProcessError(outerErr)
+	if !ok {
+		t.Error("Expected AsProcessError to find deeply nested ProcessError")
+	}
+	if procErr.ExitCode != 1 {
+		t.Errorf("Expected ExitCode 1, got %d", procErr.ExitCode)
+	}
+}

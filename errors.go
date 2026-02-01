@@ -2,6 +2,7 @@
 package claude
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -122,4 +123,52 @@ func NewMessageParseError(message string, data map[string]any) *MessageParseErro
 		ClaudeSDKError: ClaudeSDKError{Message: message},
 		Data:           data,
 	}
+}
+
+// IsConnectionError reports whether err is a CLIConnectionError.
+func IsConnectionError(err error) bool {
+	var connErr *CLIConnectionError
+	return errors.As(err, &connErr)
+}
+
+// IsCLINotFoundError reports whether err is a CLINotFoundError.
+func IsCLINotFoundError(err error) bool {
+	var notFoundErr *CLINotFoundError
+	return errors.As(err, &notFoundErr)
+}
+
+// IsProcessError reports whether err is a ProcessError.
+func IsProcessError(err error) bool {
+	var procErr *ProcessError
+	return errors.As(err, &procErr)
+}
+
+// AsConnectionError extracts a CLIConnectionError from err.
+// Returns the error and true if found, nil and false otherwise.
+func AsConnectionError(err error) (*CLIConnectionError, bool) {
+	var connErr *CLIConnectionError
+	if errors.As(err, &connErr) {
+		return connErr, true
+	}
+	return nil, false
+}
+
+// AsCLINotFoundError extracts a CLINotFoundError from err.
+// Returns the error and true if found, nil and false otherwise.
+func AsCLINotFoundError(err error) (*CLINotFoundError, bool) {
+	var notFoundErr *CLINotFoundError
+	if errors.As(err, &notFoundErr) {
+		return notFoundErr, true
+	}
+	return nil, false
+}
+
+// AsProcessError extracts a ProcessError from err.
+// Returns the error and true if found, nil and false otherwise.
+func AsProcessError(err error) (*ProcessError, bool) {
+	var procErr *ProcessError
+	if errors.As(err, &procErr) {
+		return procErr, true
+	}
+	return nil, false
 }
