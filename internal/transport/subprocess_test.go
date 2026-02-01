@@ -1,6 +1,10 @@
 package transport
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
 	"testing"
 )
 
@@ -653,5 +657,1066 @@ func BenchmarkBuildCommand(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = transport.buildCommand()
+	}
+}
+
+func TestSubprocessTransport_Write_NotReady(t *testing.T) {
+	transport := &SubprocessTransport{
+		ready:   false,
+		options: &Options{},
+	}
+
+	err := transport.Write(context.Background(), "test data")
+	if err == nil {
+		t.Error("Expected error when transport is not ready")
+	}
+	if err.Error() != "transport is not ready for writing" {
+		t.Errorf("Expected 'not ready' error, got: %v", err)
+	}
+}
+
+func TestSubprocessTransport_Write_NilStdin(t *testing.T) {
+	transport := &SubprocessTransport{
+		ready:   true,
+		stdin:   nil,
+		options: &Options{},
+	}
+
+	err := transport.Write(context.Background(), "test data")
+	if err == nil {
+		t.Error("Expected error when stdin is nil")
+	}
+}
+
+func TestSubprocessTransport_EndInput_NilStdin(t *testing.T) {
+	transport := &SubprocessTransport{
+		stdin:   nil,
+		options: &Options{},
+	}
+
+	err := transport.EndInput()
+	if err != nil {
+		t.Errorf("Expected no error for nil stdin, got %v", err)
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_MaxThinkingTokens(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			MaxThinkingTokens: 8192,
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	foundMaxThinking := false
+	for i, arg := range cmd {
+		if arg == "--max-thinking-tokens" && i+1 < len(cmd) && cmd[i+1] == "8192" {
+			foundMaxThinking = true
+		}
+	}
+
+	if !foundMaxThinking {
+		t.Error("Expected --max-thinking-tokens flag with value 8192")
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_OutputFormatJSON(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			OutputFormat: map[string]any{
+				"type": "json_schema",
+				"schema": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"name": map[string]any{"type": "string"},
+					},
+				},
+			},
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	foundJSONSchema := false
+	for i, arg := range cmd {
+		if arg == "--json-schema" && i+1 < len(cmd) {
+			foundJSONSchema = true
+		}
+	}
+
+	if !foundJSONSchema {
+		t.Error("Expected --json-schema flag")
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_ForkSession(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			ForkSession: true,
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	foundForkSession := false
+	for _, arg := range cmd {
+		if arg == "--fork-session" {
+			foundForkSession = true
+		}
+	}
+
+	if !foundForkSession {
+		t.Error("Expected --fork-session flag")
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_ContinueConversation(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			ContinueConversation: true,
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	foundContinue := false
+	for _, arg := range cmd {
+		if arg == "--continue" {
+			foundContinue = true
+		}
+	}
+
+	if !foundContinue {
+		t.Error("Expected --continue flag")
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_Resume(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			Resume: "session-123",
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	foundResume := false
+	for i, arg := range cmd {
+		if arg == "--resume" && i+1 < len(cmd) && cmd[i+1] == "session-123" {
+			foundResume = true
+		}
+	}
+
+	if !foundResume {
+		t.Error("Expected --resume flag with session ID")
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_DisallowedTools(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			DisallowedTools: []string{"Bash", "Write"},
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	foundDisallowed := false
+	for i, arg := range cmd {
+		if arg == "--disallowedTools" && i+1 < len(cmd) && cmd[i+1] == "Bash,Write" {
+			foundDisallowed = true
+		}
+	}
+
+	if !foundDisallowed {
+		t.Error("Expected --disallowedTools flag")
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_FallbackModel(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			FallbackModel: "claude-3-haiku",
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	foundFallback := false
+	for i, arg := range cmd {
+		if arg == "--fallback-model" && i+1 < len(cmd) && cmd[i+1] == "claude-3-haiku" {
+			foundFallback = true
+		}
+	}
+
+	if !foundFallback {
+		t.Error("Expected --fallback-model flag")
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_IncludePartialMessages(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			IncludePartialMessages: true,
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	foundPartial := false
+	for _, arg := range cmd {
+		if arg == "--include-partial-messages" {
+			foundPartial = true
+		}
+	}
+
+	if !foundPartial {
+		t.Error("Expected --include-partial-messages flag")
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_PermissionPromptTool(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			PermissionPromptToolName: "custom_prompt_tool",
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	foundPromptTool := false
+	for i, arg := range cmd {
+		if arg == "--permission-prompt-tool" && i+1 < len(cmd) && cmd[i+1] == "custom_prompt_tool" {
+			foundPromptTool = true
+		}
+	}
+
+	if !foundPromptTool {
+		t.Error("Expected --permission-prompt-tool flag")
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_MaxBudgetUSD(t *testing.T) {
+	budget := 10.5
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			MaxBudgetUSD: &budget,
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	foundBudget := false
+	for i, arg := range cmd {
+		if arg == "--max-budget-usd" && i+1 < len(cmd) && cmd[i+1] == "10.5" {
+			foundBudget = true
+		}
+	}
+
+	if !foundBudget {
+		t.Error("Expected --max-budget-usd flag")
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_Agents(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			Agents: map[string]AgentDefinition{
+				"test-agent": {
+					Description: "A test agent",
+					Prompt:      "You are a test agent",
+					Tools:       []string{"Read"},
+				},
+			},
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	foundAgents := false
+	for _, arg := range cmd {
+		if arg == "--agents" {
+			foundAgents = true
+		}
+	}
+
+	if !foundAgents {
+		t.Error("Expected --agents flag")
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_SettingSources(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			SettingSources: []string{"project", "user"},
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	foundSettingSources := false
+	for i, arg := range cmd {
+		if arg == "--setting-sources" && i+1 < len(cmd) && cmd[i+1] == "project,user" {
+			foundSettingSources = true
+		}
+	}
+
+	if !foundSettingSources {
+		t.Error("Expected --setting-sources flag with values")
+	}
+}
+
+func TestSubprocessTransport_BuildSettingsValue_Both(t *testing.T) {
+	transport := &SubprocessTransport{
+		options: &Options{
+			Settings: `{"key": "value"}`,
+			Sandbox: &SandboxSettings{
+				Enabled: true,
+			},
+		},
+	}
+
+	result, err := transport.buildSettingsValue()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Result should be valid JSON containing both settings
+	if result == "" {
+		t.Error("Expected non-empty result")
+	}
+
+	// Should contain sandbox
+	if !contains(result, "sandbox") {
+		t.Error("Expected result to contain sandbox settings")
+	}
+}
+
+func TestSubprocessTransport_BuildSettingsValue_InvalidJSON(t *testing.T) {
+	transport := &SubprocessTransport{
+		options: &Options{
+			Settings: `{invalid json}`,
+			Sandbox: &SandboxSettings{
+				Enabled: true,
+			},
+		},
+	}
+
+	// Should not error - invalid JSON is treated as file path
+	result, err := transport.buildSettingsValue()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if result == "" {
+		t.Error("Expected non-empty result")
+	}
+}
+
+// Helper function to check if string contains substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsAt(s, substr))
+}
+
+func containsAt(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
+func TestSubprocessTransport_BuildCommand_ToolsDefault(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			Tools: "default", // Not a []string, should use "default"
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	foundTools := false
+	for i, arg := range cmd {
+		if arg == "--tools" && i+1 < len(cmd) && cmd[i+1] == "default" {
+			foundTools = true
+		}
+	}
+
+	if !foundTools {
+		t.Error("Expected --tools default for non-slice tools")
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_MCPServersEmpty(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			MCPServers: map[string]any{}, // Empty map
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Should not have --mcp-config for empty map
+	for _, arg := range cmd {
+		if arg == "--mcp-config" {
+			t.Error("Should not include --mcp-config for empty map")
+		}
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_SettingSourcesNil(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			SettingSources: nil,
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Should have --setting-sources with empty string for nil
+	foundSettingSources := false
+	for i, arg := range cmd {
+		if arg == "--setting-sources" && i+1 < len(cmd) && cmd[i+1] == "" {
+			foundSettingSources = true
+		}
+	}
+
+	if !foundSettingSources {
+		t.Error("Expected --setting-sources with empty string for nil")
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_MultiplePlugins(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			Plugins: []PluginConfig{
+				{Type: "local", Path: "/path/to/plugin1"},
+				{Type: "local", Path: "/path/to/plugin2"},
+				{Type: "remote", Path: "/path/to/remote"}, // Non-local should be skipped
+			},
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	pluginDirCount := 0
+	for _, arg := range cmd {
+		if arg == "--plugin-dir" {
+			pluginDirCount++
+		}
+	}
+
+	if pluginDirCount != 2 {
+		t.Errorf("Expected 2 --plugin-dir flags (only local), got %d", pluginDirCount)
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_OutputFormatNotJSON(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			OutputFormat: map[string]any{
+				"type": "text", // Not json_schema
+			},
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Should not have --json-schema for non-json_schema type
+	for _, arg := range cmd {
+		if arg == "--json-schema" {
+			t.Error("Should not include --json-schema for non-json_schema type")
+		}
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_SystemPromptPresetNoAppend(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			SystemPrompt: &SystemPromptPreset{
+				Type:   "preset",
+				Preset: "claude_code",
+				Append: "", // Empty append
+			},
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Should not have --append-system-prompt for empty Append
+	for _, arg := range cmd {
+		if arg == "--append-system-prompt" {
+			t.Error("Should not include --append-system-prompt for empty Append")
+		}
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_SystemPromptPresetWrongType(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			SystemPrompt: &SystemPromptPreset{
+				Type:   "custom", // Not "preset"
+				Preset: "claude_code",
+				Append: "Additional instructions",
+			},
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Should not have --append-system-prompt for wrong type
+	for _, arg := range cmd {
+		if arg == "--append-system-prompt" {
+			t.Error("Should not include --append-system-prompt for wrong type")
+		}
+	}
+}
+
+func TestSubprocessTransport_EndInput_WithStdin(t *testing.T) {
+	// Create a mock stdin
+	r, w, _ := os.Pipe()
+	defer r.Close()
+
+	transport := &SubprocessTransport{
+		stdin:   w,
+		options: &Options{},
+	}
+
+	err := transport.EndInput()
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	// stdin should be nil after EndInput
+	if transport.stdin != nil {
+		t.Error("Expected stdin to be nil after EndInput")
+	}
+}
+
+func TestSubprocessTransport_Close_WithTempFiles(t *testing.T) {
+	// Create a temp file
+	tmpFile, err := os.CreateTemp("", "test-temp-*.txt")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	tmpFile.Close()
+
+	transport := &SubprocessTransport{
+		tempFiles: []string{tmpFile.Name()},
+		options:   &Options{},
+	}
+
+	err = transport.Close()
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	// Temp file should be removed
+	if _, err := os.Stat(tmpFile.Name()); !os.IsNotExist(err) {
+		t.Error("Expected temp file to be removed")
+		os.Remove(tmpFile.Name()) // Clean up if not removed
+	}
+}
+
+func TestMCPSDKServerConfig_GetType(t *testing.T) {
+	config := MCPSDKServerConfig{
+		Type: "sdk",
+		Name: "test",
+	}
+
+	if config.GetType() != "sdk" {
+		t.Errorf("Expected GetType() to return 'sdk', got '%s'", config.GetType())
+	}
+}
+
+func TestSubprocessTransport_BuildSettingsValue_FilePath(t *testing.T) {
+	// Create a temp settings file
+	tmpFile, err := os.CreateTemp("", "settings-*.json")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	settingsContent := `{"key": "file_value"}`
+	tmpFile.WriteString(settingsContent)
+	tmpFile.Close()
+
+	transport := &SubprocessTransport{
+		options: &Options{
+			Settings: tmpFile.Name(),
+			Sandbox: &SandboxSettings{
+				Enabled: true,
+			},
+		},
+	}
+
+	result, err := transport.buildSettingsValue()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Should contain sandbox settings merged with file content
+	if result == "" {
+		t.Error("Expected non-empty result")
+	}
+}
+
+func TestSubprocessTransport_BuildSettingsValue_InvalidFilePath(t *testing.T) {
+	transport := &SubprocessTransport{
+		options: &Options{
+			Settings: "/nonexistent/path/to/settings.json",
+			Sandbox: &SandboxSettings{
+				Enabled: true,
+			},
+		},
+	}
+
+	// Should not error, just ignore the file
+	result, err := transport.buildSettingsValue()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Should still have sandbox settings
+	if result == "" {
+		t.Error("Expected non-empty result with sandbox")
+	}
+}
+
+func TestSubprocessTransport_Write_WithExitError(t *testing.T) {
+	transport := &SubprocessTransport{
+		ready:     true,
+		stdin:     nil,
+		exitError: os.ErrClosed,
+		options:   &Options{},
+	}
+
+	err := transport.Write(context.Background(), "test")
+	if err == nil {
+		t.Error("Expected error when stdin is nil")
+	}
+}
+
+func TestSubprocessTransport_Close_WithStdinAndStderr(t *testing.T) {
+	// Create mock pipes
+	stdinR, stdinW, _ := os.Pipe()
+	stderrR, stderrW, _ := os.Pipe()
+	defer stdinR.Close()
+	defer stderrW.Close()
+
+	transport := &SubprocessTransport{
+		stdin:   stdinW,
+		stderr:  stderrR,
+		options: &Options{},
+	}
+
+	err := transport.Close()
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if transport.stdin != nil {
+		t.Error("Expected stdin to be nil after Close")
+	}
+	if transport.stderr != nil {
+		t.Error("Expected stderr to be nil after Close")
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_AllOptions(t *testing.T) {
+	budget := 5.0
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			Model:                    "claude-3-opus",
+			FallbackModel:            "claude-3-sonnet",
+			MaxTurns:                 10,
+			MaxBudgetUSD:             &budget,
+			PermissionMode:           "default",
+			PermissionPromptToolName: "custom_tool",
+			Tools:                    []string{"Bash", "Read"},
+			AllowedTools:             []string{"Bash"},
+			DisallowedTools:          []string{"Write"},
+			Betas:                    []string{"beta1"},
+			ContinueConversation:     true,
+			Resume:                   "session-id",
+			ForkSession:              true,
+			IncludePartialMessages:   true,
+			AddDirs:                  []string{"/dir1", "/dir2"},
+			MaxThinkingTokens:        4096,
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Check all flags are present
+	flags := map[string]bool{
+		"--model":                    false,
+		"--fallback-model":           false,
+		"--max-turns":                false,
+		"--max-budget-usd":           false,
+		"--permission-mode":          false,
+		"--permission-prompt-tool":   false,
+		"--tools":                    false,
+		"--allowedTools":             false,
+		"--disallowedTools":          false,
+		"--betas":                    false,
+		"--continue":                 false,
+		"--resume":                   false,
+		"--fork-session":             false,
+		"--include-partial-messages": false,
+		"--add-dir":                  false,
+		"--max-thinking-tokens":      false,
+	}
+
+	for _, arg := range cmd {
+		for flag := range flags {
+			if arg == flag {
+				flags[flag] = true
+			}
+		}
+	}
+
+	for flag, found := range flags {
+		if !found {
+			t.Errorf("Expected flag %s not found in command", flag)
+		}
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_OutputFormatWithSchema(t *testing.T) {
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			OutputFormat: map[string]any{
+				"type":   "json_schema",
+				"schema": map[string]any{"type": "object"},
+			},
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	foundJSONSchema := false
+	for i, arg := range cmd {
+		if arg == "--json-schema" && i+1 < len(cmd) {
+			foundJSONSchema = true
+			// Verify it's valid JSON
+			var parsed map[string]any
+			if json.Unmarshal([]byte(cmd[i+1]), &parsed) != nil {
+				t.Error("Expected valid JSON schema after --json-schema flag")
+			}
+		}
+	}
+
+	if !foundJSONSchema {
+		t.Error("Expected --json-schema flag")
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_LongAgentsCommandLine(t *testing.T) {
+	// Create many agents to potentially trigger temp file creation
+	// Note: This won't actually create temp file in test since cmdLengthLimit is high
+	agents := make(map[string]AgentDefinition)
+	for i := 0; i < 10; i++ {
+		agents[fmt.Sprintf("agent-%d", i)] = AgentDefinition{
+			Description: "A test agent with a moderately long description",
+			Prompt:      "You are a test agent. Please do test things.",
+			Tools:       []string{"Read", "Write", "Bash"},
+		}
+	}
+
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			Agents: agents,
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	foundAgents := false
+	for _, arg := range cmd {
+		if arg == "--agents" {
+			foundAgents = true
+		}
+	}
+
+	if !foundAgents {
+		t.Error("Expected --agents flag")
+	}
+}
+
+func TestSubprocessTransport_NewSubprocessTransport_WithCLIPath(t *testing.T) {
+	options := &Options{
+		CLIPath: "/custom/path/to/claude",
+	}
+
+	transport, err := NewSubprocessTransport("test prompt", false, options)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if transport.cliPath != "/custom/path/to/claude" {
+		t.Errorf("Expected CLI path '/custom/path/to/claude', got '%s'", transport.cliPath)
+	}
+}
+
+func TestSubprocessTransport_BuildSettingsValue_JsonBraces(t *testing.T) {
+	// Test settings that look like JSON (has braces) but combined with sandbox
+	transport := &SubprocessTransport{
+		options: &Options{
+			Settings: `{"existing": "value"}`,
+			Sandbox: &SandboxSettings{
+				Enabled:                  true,
+				AutoAllowBashIfSandboxed: true,
+			},
+		},
+	}
+
+	result, err := transport.buildSettingsValue()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Result should contain both existing and sandbox
+	if result == "" {
+		t.Error("Expected non-empty result")
+	}
+	if !contains(result, "sandbox") {
+		t.Error("Expected result to contain sandbox")
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_AgentsError(t *testing.T) {
+	// Create agents map that will serialize correctly
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			Agents: map[string]AgentDefinition{
+				"test": {Description: "Test", Prompt: "Prompt"},
+			},
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Should have agents flag
+	foundAgents := false
+	for _, arg := range cmd {
+		if arg == "--agents" {
+			foundAgents = true
+		}
+	}
+	if !foundAgents {
+		t.Error("Expected --agents flag")
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_MCPServersJsonError(t *testing.T) {
+	// Valid MCP servers map
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			MCPServers: map[string]any{
+				"server": map[string]any{
+					"type":    "stdio",
+					"command": "test",
+				},
+			},
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	foundMCP := false
+	for i, arg := range cmd {
+		if arg == "--mcp-config" && i+1 < len(cmd) {
+			foundMCP = true
+			// Verify valid JSON
+			var parsed map[string]any
+			if json.Unmarshal([]byte(cmd[i+1]), &parsed) != nil {
+				t.Error("Expected valid JSON for --mcp-config value")
+			}
+		}
+	}
+	if !foundMCP {
+		t.Error("Expected --mcp-config flag")
+	}
+}
+
+func TestSubprocessTransport_BuildCommand_OutputFormatNoSchema(t *testing.T) {
+	// Output format with json_schema type but no schema field
+	transport := &SubprocessTransport{
+		cliPath:     "/usr/local/bin/claude",
+		isStreaming: true,
+		options: &Options{
+			OutputFormat: map[string]any{
+				"type": "json_schema",
+				// No schema field
+			},
+		},
+	}
+
+	cmd, err := transport.buildCommand()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Should not have --json-schema since there's no schema
+	for _, arg := range cmd {
+		if arg == "--json-schema" {
+			t.Error("Should not have --json-schema without schema field")
+		}
+	}
+}
+
+func TestSubprocessTransport_Close_MultipleCloses(t *testing.T) {
+	transport := &SubprocessTransport{
+		options: &Options{},
+	}
+
+	// First close
+	err1 := transport.Close()
+	if err1 != nil {
+		t.Errorf("First close error: %v", err1)
+	}
+
+	// Second close should not error
+	err2 := transport.Close()
+	if err2 != nil {
+		t.Errorf("Second close error: %v", err2)
+	}
+}
+
+func TestSubprocessTransport_Close_Ready(t *testing.T) {
+	transport := &SubprocessTransport{
+		ready:   true,
+		options: &Options{},
+	}
+
+	err := transport.Close()
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if transport.ready {
+		t.Error("Expected ready to be false after Close")
 	}
 }
