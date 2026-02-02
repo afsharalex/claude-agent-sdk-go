@@ -113,7 +113,7 @@ func toTransportOptions(o *Options) *transport.Options {
 	var plugins []transport.PluginConfig
 	for _, p := range o.Plugins {
 		plugins = append(plugins, transport.PluginConfig{
-			Type: p.Type,
+			Type: string(p.Type),
 			Path: p.Path,
 		})
 	}

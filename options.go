@@ -432,3 +432,198 @@ func WithEnvVar(key, value string) Option {
 		o.Env[key] = value
 	}
 }
+
+// WithFileCheckpointing enables file checkpointing.
+// Shorthand for WithEnableFileCheckpointing(true).
+func WithFileCheckpointing() Option {
+	return func(o *Options) {
+		o.EnableFileCheckpointing = true
+	}
+}
+
+// WithPartialStreaming enables partial message streaming.
+// Shorthand for WithIncludePartialMessages(true).
+func WithPartialStreaming() Option {
+	return func(o *Options) {
+		o.IncludePartialMessages = true
+	}
+}
+
+// WithJSONSchema sets structured output to use the given JSON schema.
+// schema should be a map representing the JSON schema definition.
+func WithJSONSchema(schema map[string]any) Option {
+	return func(o *Options) {
+		o.OutputFormat = map[string]any{
+			"type":   "json_schema",
+			"schema": schema,
+		}
+	}
+}
+
+// WithAgent adds a single agent definition.
+// Can be called multiple times to add multiple agents.
+func WithAgent(name string, agent AgentDefinition) Option {
+	return func(o *Options) {
+		if o.Agents == nil {
+			o.Agents = make(map[string]AgentDefinition)
+		}
+		o.Agents[name] = agent
+	}
+}
+
+// WithPlugin adds a single plugin configuration.
+// Can be called multiple times to add multiple plugins.
+func WithPlugin(plugin SdkPluginConfig) Option {
+	return func(o *Options) {
+		o.Plugins = append(o.Plugins, plugin)
+	}
+}
+
+// WithLocalPlugin adds a local plugin by path.
+// Convenience for WithPlugin with type SdkPluginTypeLocal.
+func WithLocalPlugin(path string) Option {
+	return func(o *Options) {
+		o.Plugins = append(o.Plugins, SdkPluginConfig{
+			Type: SdkPluginTypeLocal,
+			Path: path,
+		})
+	}
+}
+
+// WithSdkMcpServer adds an in-process SDK MCP server.
+// Can be called multiple times to add multiple servers.
+// Note: If MCPServers was previously set to a config file path via WithMCPConfigPath,
+// calling this function will overwrite it with a map containing only the SDK servers.
+// SDK MCP servers take precedence over config file paths when both are specified.
+func WithSdkMcpServer(name string, server *MCPServer) Option {
+	return func(o *Options) {
+		config := MCPSDKServerConfig{
+			Type:   "sdk",
+			Name:   name,
+			Server: server,
+		}
+
+		switch servers := o.MCPServers.(type) {
+		case nil:
+			// Initialize new map
+			o.MCPServers = map[string]MCPServerConfig{name: config}
+		case map[string]MCPServerConfig:
+			// Add to existing map
+			servers[name] = config
+		case string:
+			// MCPServers is a config file path - create new map (path will be overwritten)
+			o.MCPServers = map[string]MCPServerConfig{name: config}
+		default:
+			// Unknown type - initialize new map
+			o.MCPServers = map[string]MCPServerConfig{name: config}
+		}
+	}
+}
+
+// WithHook adds a single hook matcher for an event.
+// Can be called multiple times to add multiple hooks.
+func WithHook(event HookEvent, matcher HookMatcher) Option {
+	return func(o *Options) {
+		if o.Hooks == nil {
+			o.Hooks = make(map[HookEvent][]HookMatcher)
+		}
+		o.Hooks[event] = append(o.Hooks[event], matcher)
+	}
+}
+
+// WithPreToolUseHook adds a pre-tool-use hook with optional tool filter.
+// toolPattern can be empty to match all tools, or a specific tool name.
+// Uses 30 second default timeout.
+func WithPreToolUseHook(toolPattern string, callback HookCallback) Option {
+	return func(o *Options) {
+		if o.Hooks == nil {
+			o.Hooks = make(map[HookEvent][]HookMatcher)
+		}
+		matcher := HookMatcher{
+			Matcher: toolPattern,
+			Hooks:   []HookCallback{callback},
+			Timeout: 30,
+		}
+		o.Hooks[HookEventPreToolUse] = append(o.Hooks[HookEventPreToolUse], matcher)
+	}
+}
+
+// WithPostToolUseHook adds a post-tool-use hook with optional tool filter.
+// toolPattern can be empty to match all tools, or a specific tool name.
+// Uses 30 second default timeout.
+func WithPostToolUseHook(toolPattern string, callback HookCallback) Option {
+	return func(o *Options) {
+		if o.Hooks == nil {
+			o.Hooks = make(map[HookEvent][]HookMatcher)
+		}
+		matcher := HookMatcher{
+			Matcher: toolPattern,
+			Hooks:   []HookCallback{callback},
+			Timeout: 30,
+		}
+		o.Hooks[HookEventPostToolUse] = append(o.Hooks[HookEventPostToolUse], matcher)
+	}
+}
+
+// WithSandboxEnabled creates or updates sandbox settings with enabled state.
+// Initializes SandboxSettings if nil.
+func WithSandboxEnabled(enabled bool) Option {
+	return func(o *Options) {
+		if o.Sandbox == nil {
+			o.Sandbox = &SandboxSettings{}
+		}
+		o.Sandbox.Enabled = enabled
+	}
+}
+
+// WithAutoAllowBashIfSandboxed sets auto-approval of bash when sandboxed.
+// When enabled, bash commands execute without permission prompts in a sandboxed
+// environment, since the sandbox provides security isolation.
+// Initializes SandboxSettings if needed.
+func WithAutoAllowBashIfSandboxed(autoAllow bool) Option {
+	return func(o *Options) {
+		if o.Sandbox == nil {
+			o.Sandbox = &SandboxSettings{}
+		}
+		o.Sandbox.AutoAllowBashIfSandboxed = autoAllow
+	}
+}
+
+// WithSandboxExcludedCommands sets commands that bypass the sandbox.
+// These commands will run outside the sandbox environment.
+// Can be called multiple times to add commands.
+func WithSandboxExcludedCommands(commands ...string) Option {
+	return func(o *Options) {
+		if o.Sandbox == nil {
+			o.Sandbox = &SandboxSettings{}
+		}
+		o.Sandbox.ExcludedCommands = append(o.Sandbox.ExcludedCommands, commands...)
+	}
+}
+
+// WithSandboxNetwork sets the network configuration for sandbox.
+// Initializes SandboxSettings if needed.
+func WithSandboxNetwork(config *SandboxNetworkConfig) Option {
+	return func(o *Options) {
+		if o.Sandbox == nil {
+			o.Sandbox = &SandboxSettings{}
+		}
+		o.Sandbox.Network = config
+	}
+}
+
+// WithSandboxAllowLocalBinding enables binding to localhost ports in sandbox.
+// This is useful for development servers that need to bind to local ports.
+// Convenience for common network setting. Initializes SandboxSettings if needed.
+// Note: This only works on macOS.
+func WithSandboxAllowLocalBinding() Option {
+	return func(o *Options) {
+		if o.Sandbox == nil {
+			o.Sandbox = &SandboxSettings{}
+		}
+		if o.Sandbox.Network == nil {
+			o.Sandbox.Network = &SandboxNetworkConfig{}
+		}
+		o.Sandbox.Network.AllowLocalBinding = true
+	}
+}
