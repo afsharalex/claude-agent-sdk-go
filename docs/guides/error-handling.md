@@ -2,6 +2,48 @@
 
 How to handle errors from the Claude Agent SDK.
 
+## Use Error Helper Functions
+
+The SDK provides convenient helper functions for checking and extracting error types. These follow Go idioms and work with wrapped errors:
+
+```go
+messages, errors := claude.Query(ctx, "Hello")
+
+select {
+case err := <-errors:
+    if claude.IsCLINotFoundError(err) {
+        fmt.Println("Claude Code CLI is not installed")
+        fmt.Println("Install with: curl -fsSL https://claude.ai/install.sh | bash")
+    } else if claude.IsConnectionError(err) {
+        fmt.Println("Failed to connect to Claude Code")
+    } else if claude.IsProcessError(err) {
+        if procErr, ok := claude.AsProcessError(err); ok {
+            fmt.Printf("Process failed with exit code: %d\n", procErr.ExitCode)
+            if procErr.Stderr != "" {
+                fmt.Printf("Stderr: %s\n", procErr.Stderr)
+            }
+        }
+    } else {
+        fmt.Printf("Unknown error: %v\n", err)
+    }
+case msg := <-messages:
+    // Handle message
+}
+```
+
+### Available Helper Functions
+
+| Function | Description |
+|----------|-------------|
+| `IsConnectionError(err)` | Returns true if err is a `CLIConnectionError` |
+| `IsCLINotFoundError(err)` | Returns true if err is a `CLINotFoundError` |
+| `IsProcessError(err)` | Returns true if err is a `ProcessError` |
+| `AsConnectionError(err)` | Extracts `*CLIConnectionError` from err |
+| `AsCLINotFoundError(err)` | Extracts `*CLINotFoundError` from err |
+| `AsProcessError(err)` | Extracts `*ProcessError` from err |
+
+These helpers use `errors.As` internally and work correctly with wrapped errors.
+
 ## Handle CLI Not Found
 
 Check if Claude Code is installed:
@@ -142,11 +184,11 @@ func queryWithRetry(ctx context.Context, prompt string, maxRetries int) error {
 
 func isRetryable(err error) bool {
     // Connection errors are often transient
-    if _, ok := err.(*claude.CLIConnectionError); ok {
+    if claude.IsConnectionError(err) {
         return true
     }
     // Process errors might be transient
-    if procErr, ok := err.(*claude.ProcessError); ok {
+    if procErr, ok := claude.AsProcessError(err); ok {
         // Retry on specific exit codes
         return procErr.ExitCode == 1
     }

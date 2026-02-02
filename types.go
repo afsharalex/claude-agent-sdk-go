@@ -748,10 +748,18 @@ type SandboxSettings struct {
 	EnableWeakerNestedSandbox bool `json:"enableWeakerNestedSandbox,omitempty"`
 }
 
+// SdkPluginType defines the type of plugin.
+type SdkPluginType string
+
+const (
+	// SdkPluginTypeLocal is a plugin loaded from a local filesystem path.
+	SdkPluginTypeLocal SdkPluginType = "local"
+)
+
 // SdkPluginConfig configures an SDK plugin.
 type SdkPluginConfig struct {
-	Type string `json:"type"` // Currently only "local" is supported
-	Path string `json:"path"`
+	Type SdkPluginType `json:"type"` // Currently only SdkPluginTypeLocal is supported
+	Path string        `json:"path"`
 }
 
 // SdkBeta represents beta features that can be enabled.

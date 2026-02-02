@@ -507,3 +507,149 @@ func BenchmarkNewOptions_WithOptions(b *testing.B) {
 		)
 	}
 }
+
+// Tests for new convenience options
+
+func TestWithAppendSystemPrompt(t *testing.T) {
+	t.Run("sets prompt when none exists", func(t *testing.T) {
+		opts := NewOptions(WithAppendSystemPrompt("You are helpful"))
+
+		if opts.AppendSystemPrompt != "You are helpful" {
+			t.Errorf("Expected AppendSystemPrompt 'You are helpful', got '%s'", opts.AppendSystemPrompt)
+		}
+	})
+
+	t.Run("appends to existing append prompt", func(t *testing.T) {
+		opts := NewOptions(
+			WithAppendSystemPrompt("First line"),
+			WithAppendSystemPrompt("Second line"),
+		)
+
+		expected := "First line\nSecond line"
+		if opts.AppendSystemPrompt != expected {
+			t.Errorf("Expected AppendSystemPrompt '%s', got '%s'", expected, opts.AppendSystemPrompt)
+		}
+	})
+
+	t.Run("multiple appends with newlines", func(t *testing.T) {
+		opts := NewOptions(
+			WithAppendSystemPrompt("Line 1"),
+			WithAppendSystemPrompt("Line 2"),
+			WithAppendSystemPrompt("Line 3"),
+		)
+
+		expected := "Line 1\nLine 2\nLine 3"
+		if opts.AppendSystemPrompt != expected {
+			t.Errorf("Expected AppendSystemPrompt '%s', got '%s'", expected, opts.AppendSystemPrompt)
+		}
+	})
+}
+
+func TestWithAppendSystemPrompt_CombinesWithSystemPrompt(t *testing.T) {
+	opts := NewOptions(
+		WithSystemPrompt("Base prompt"),
+		WithAppendSystemPrompt("Additional instructions"),
+	)
+
+	if opts.SystemPrompt != "Base prompt" {
+		t.Errorf("Expected SystemPrompt 'Base prompt', got '%v'", opts.SystemPrompt)
+	}
+	if opts.AppendSystemPrompt != "Additional instructions" {
+		t.Errorf("Expected AppendSystemPrompt 'Additional instructions', got '%s'", opts.AppendSystemPrompt)
+	}
+}
+
+func TestWithDebugStderr(t *testing.T) {
+	opts := NewOptions(WithDebugStderr())
+
+	if opts.Stderr == nil {
+		t.Fatal("Expected Stderr callback to be set")
+	}
+
+	// The callback should not panic when called
+	opts.Stderr("test output")
+}
+
+func TestWithDebugStderr_OverridesExisting(t *testing.T) {
+	customCalled := false
+	customCallback := func(line string) { customCalled = true }
+
+	opts := NewOptions(
+		WithStderr(customCallback),
+		WithDebugStderr(),
+	)
+
+	// Call the callback - it should be the debug stderr, not the custom one
+	opts.Stderr("test")
+
+	if customCalled {
+		t.Error("Expected custom callback to be overridden by WithDebugStderr")
+	}
+}
+
+func TestWithEnvVar(t *testing.T) {
+	t.Run("sets single env var", func(t *testing.T) {
+		opts := NewOptions(WithEnvVar("MY_KEY", "my_value"))
+
+		if opts.Env["MY_KEY"] != "my_value" {
+			t.Errorf("Expected Env['MY_KEY']='my_value', got '%s'", opts.Env["MY_KEY"])
+		}
+	})
+
+	t.Run("sets multiple env vars", func(t *testing.T) {
+		opts := NewOptions(
+			WithEnvVar("KEY1", "value1"),
+			WithEnvVar("KEY2", "value2"),
+			WithEnvVar("KEY3", "value3"),
+		)
+
+		if opts.Env["KEY1"] != "value1" {
+			t.Errorf("Expected Env['KEY1']='value1', got '%s'", opts.Env["KEY1"])
+		}
+		if opts.Env["KEY2"] != "value2" {
+			t.Errorf("Expected Env['KEY2']='value2', got '%s'", opts.Env["KEY2"])
+		}
+		if opts.Env["KEY3"] != "value3" {
+			t.Errorf("Expected Env['KEY3']='value3', got '%s'", opts.Env["KEY3"])
+		}
+	})
+
+	t.Run("overwrites existing key", func(t *testing.T) {
+		opts := NewOptions(
+			WithEnvVar("KEY", "original"),
+			WithEnvVar("KEY", "updated"),
+		)
+
+		if opts.Env["KEY"] != "updated" {
+			t.Errorf("Expected Env['KEY']='updated', got '%s'", opts.Env["KEY"])
+		}
+	})
+
+	t.Run("initializes nil Env map", func(t *testing.T) {
+		opts := &Options{Env: nil}
+		opt := WithEnvVar("KEY", "value")
+		opt(opts)
+
+		if opts.Env == nil {
+			t.Error("Expected Env to be initialized")
+		}
+		if opts.Env["KEY"] != "value" {
+			t.Errorf("Expected Env['KEY']='value', got '%s'", opts.Env["KEY"])
+		}
+	})
+}
+
+func TestWithEnvVar_CombinesWithWithEnv(t *testing.T) {
+	opts := NewOptions(
+		WithEnv(map[string]string{"EXISTING": "value"}),
+		WithEnvVar("NEW", "new_value"),
+	)
+
+	// WithEnv replaces the map, so EXISTING should exist
+	if opts.Env["EXISTING"] != "value" {
+		t.Errorf("Expected Env['EXISTING']='value', got '%s'", opts.Env["EXISTING"])
+	}
+	if opts.Env["NEW"] != "new_value" {
+		t.Errorf("Expected Env['NEW']='new_value', got '%s'", opts.Env["NEW"])
+	}
+}

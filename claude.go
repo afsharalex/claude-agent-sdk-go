@@ -113,7 +113,7 @@ func toTransportOptions(o *Options) *transport.Options {
 	var plugins []transport.PluginConfig
 	for _, p := range o.Plugins {
 		plugins = append(plugins, transport.PluginConfig{
-			Type: p.Type,
+			Type: string(p.Type),
 			Path: p.Path,
 		})
 	}
@@ -157,10 +157,22 @@ func toTransportOptions(o *Options) *transport.Options {
 		}
 	}
 
+	// Combine SystemPrompt and AppendSystemPrompt
+	var systemPrompt any = o.SystemPrompt
+	if o.AppendSystemPrompt != "" {
+		if systemPrompt == nil {
+			systemPrompt = o.AppendSystemPrompt
+		} else if sp, ok := systemPrompt.(string); ok {
+			systemPrompt = sp + "\n" + o.AppendSystemPrompt
+		}
+		// Note: If SystemPrompt is a SystemPromptPreset, AppendSystemPrompt is ignored
+		// as presets have their own append mechanism
+	}
+
 	return &transport.Options{
 		Tools:                    o.Tools,
 		AllowedTools:             o.AllowedTools,
-		SystemPrompt:             o.SystemPrompt,
+		SystemPrompt:             systemPrompt,
 		MCPServers:               mcpServers,
 		PermissionMode:           string(o.PermissionMode),
 		ContinueConversation:     o.ContinueConversation,
@@ -531,4 +543,39 @@ func QueryStreaming(ctx context.Context, inputCh <-chan map[string]any, opts ...
 	}()
 
 	return messages, errors
+}
+
+// WithClient creates a client, executes the function, and ensures cleanup.
+// This is the recommended pattern for short-lived client operations.
+//
+// Example:
+//
+//	err := claude.WithClient(ctx, func(c *claude.Client) error {
+//	    c.Query(ctx, "Hello")
+//	    for msg := range c.ReceiveResponse(ctx) {
+//	        // handle messages
+//	    }
+//	    return nil
+//	}, claude.WithCwd("/path"))
+func WithClient(ctx context.Context, fn func(*Client) error, opts ...Option) error {
+	client := NewClient(opts...)
+
+	if err := client.Connect(ctx); err != nil {
+		return err
+	}
+	defer client.Close()
+
+	return fn(client)
+}
+
+// QueryWithSession performs a one-shot query with a specific session ID.
+// This is useful for maintaining conversation context across multiple
+// independent queries without using the full Client interface.
+//
+// If sessionID is empty, a new session is created (default behavior).
+func QueryWithSession(ctx context.Context, sessionID, prompt string, opts ...Option) (<-chan Message, <-chan error) {
+	if sessionID != "" {
+		opts = append(opts, WithResume(sessionID))
+	}
+	return Query(ctx, prompt, opts...)
 }

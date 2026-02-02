@@ -1334,7 +1334,10 @@ func TestSubprocessTransport_BuildSettingsValue_FilePath(t *testing.T) {
 	defer os.Remove(tmpFile.Name())
 
 	settingsContent := `{"key": "file_value"}`
-	tmpFile.WriteString(settingsContent)
+	_, err = tmpFile.WriteString(settingsContent)
+	if err != nil {
+		t.Fatalf("Failed to write to temp file: %v", err)
+	}
 	tmpFile.Close()
 
 	transport := &SubprocessTransport{
