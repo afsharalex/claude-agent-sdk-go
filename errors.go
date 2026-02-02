@@ -172,3 +172,35 @@ func AsProcessError(err error) (*ProcessError, bool) {
 	}
 	return nil, false
 }
+
+// IsJSONDecodeError reports whether err is a JSONDecodeError.
+func IsJSONDecodeError(err error) bool {
+	var jsonErr *JSONDecodeError
+	return errors.As(err, &jsonErr)
+}
+
+// AsJSONDecodeError extracts a JSONDecodeError from err.
+// Returns the error and true if found, nil and false otherwise.
+func AsJSONDecodeError(err error) (*JSONDecodeError, bool) {
+	var jsonErr *JSONDecodeError
+	if errors.As(err, &jsonErr) {
+		return jsonErr, true
+	}
+	return nil, false
+}
+
+// IsMessageParseError reports whether err is a MessageParseError.
+func IsMessageParseError(err error) bool {
+	var parseErr *MessageParseError
+	return errors.As(err, &parseErr)
+}
+
+// AsMessageParseError extracts a MessageParseError from err.
+// Returns the error and true if found, nil and false otherwise.
+func AsMessageParseError(err error) (*MessageParseError, bool) {
+	var parseErr *MessageParseError
+	if errors.As(err, &parseErr) {
+		return parseErr, true
+	}
+	return nil, false
+}
